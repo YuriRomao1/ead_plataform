@@ -1,0 +1,126 @@
+# AGENTS.md
+
+## Project Overview
+
+EAD Platform is a Java-based online learning platform built as a microservices architecture.
+
+The project is used as a professional learning project to practice:
+
+- Java
+- Spring Boot
+- microservices architecture
+- database per service
+- synchronous communication with REST
+- asynchronous communication with RabbitMQ
+- domain events
+- automated tests
+- AI-assisted software development workflow
+
+## Language Rules
+
+Documentation may be written in Portuguese.
+
+All code must be written in English:
+
+- package names
+- class names
+- method names
+- variables
+- database tables
+- API fields
+- comments when needed
+- commit messages
+
+## Architecture Principles
+
+The system follows a microservices architecture.
+
+Initial services:
+
+- auth-user-service
+- course-service
+- notification-service
+
+Each service owns its own database.
+
+A service must never access another service's database directly.
+
+Synchronous communication must use REST APIs.
+
+Asynchronous communication must use RabbitMQ events.
+
+## Development Workflow
+
+Before implementing a feature, the agent must check:
+
+1. `docs/domain-context.md`
+2. `docs/hld.md`, when available
+3. related FDD in `docs/fdds/`
+4. related implementation plan in `docs/implementation-plans/`
+
+Do not implement features without documentation unless explicitly asked.
+
+## Task Rules
+
+Work on one task at a time.
+
+Do not mix unrelated changes.
+
+Do not refactor unrelated code.
+
+Do not create unnecessary abstractions.
+
+Do not change architecture without creating or updating an ADR.
+
+## Java Rules
+
+Use Java 21.
+
+Use Spring Boot 3.
+
+Prefer constructor injection.
+
+Do not put business rules inside controllers.
+
+Controllers must only:
+
+1. receive requests;
+2. validate input;
+3. call application services/use cases;
+4. return responses.
+
+Business rules must live in application/domain layers.
+
+## Testing Rules
+
+Every feature must include tests.
+
+Minimum expected tests:
+
+- unit tests for domain rules;
+- integration tests for persistence and messaging when applicable;
+- controller tests for HTTP contracts when applicable.
+
+No task is complete if tests do not pass.
+
+## Definition of Done
+
+A task is complete only when:
+
+- code is implemented;
+- tests are implemented;
+- tests pass;
+- project builds;
+- documentation is updated when needed;
+- the final response explains what changed.
+
+## Git Rules
+
+Do not commit automatically unless explicitly asked.
+
+After each task, provide:
+
+- files changed;
+- tests executed;
+- result;
+- suggested commit message.
