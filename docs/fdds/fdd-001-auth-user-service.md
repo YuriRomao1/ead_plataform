@@ -1,121 +1,128 @@
 # FDD-001: Auth/User Service
 
-## 1. Contexto técnico
+## 1. Contexto e motivação técnica
 
 O `auth-user-service` é o microsserviço responsável pelo bounded context Auth/User da EAD Platform. Ele será a fonte de verdade para usuários, credenciais, papéis e status de conta.
 
-Este FDD segue:
+Este documento parte de:
 
 - `docs/domain-context.md`;
 - `docs/hld.md`;
 - `docs/decisions/adr-001-microservices-database-per-service.md`.
 
-O serviço deve possuir seu próprio banco PostgreSQL, conforme a decisão de database per service. Nenhum outro microsserviço deve acessar diretamente esse banco.
+A primeira entrega técnica do serviço deve implementar o cadastro de usuários, respeitando a decisão de microsserviços com database per service. O serviço terá seu próprio banco PostgreSQL e nenhum outro microsserviço poderá acessar diretamente suas tabelas, conexões, views ou procedures.
 
-A primeira versão do serviço cobre o cadastro de usuários e a publicação do evento `UserCreated` após uma criação bem-sucedida.
+Essa entrega também inicia a comunicação assíncrona da plataforma com a publicação do evento `UserCreated` via RabbitMQ após a criação bem-sucedida de um usuário.
 
 ## 2. Objetivos técnicos
 
-- Implementar o primeiro fluxo funcional do `auth-user-service`: criação de usuário.
-- Persistir usuários no banco próprio do serviço.
-- Validar `name`, `email`, `password` e `roles`.
-- Garantir unicidade de e-mail dentro do `auth-user-service`.
-- Armazenar senha apenas como hash.
-- Suportar os papéis `STUDENT`, `TEACHER` e `ADMIN`.
-- Suportar os status `ACTIVE` e `BLOCKED`.
+- Criar a primeira capacidade funcional do `auth-user-service`: cadastro de usuário.
+- Validar nome, e-mail e senha antes da persistência.
+- Garantir unicidade de e-mail dentro do banco do `auth-user-service`.
+- Persistir senha somente como hash.
+- Representar papéis com os valores `STUDENT`, `TEACHER` e `ADMIN`.
+- Representar status de usuário com os valores `ACTIVE` e `BLOCKED`.
 - Criar usuários inicialmente com status `ACTIVE`.
-- Publicar o evento `UserCreated` após a persistência do usuário.
-- Expor contrato HTTP inicial para cadastro de usuário.
+- Publicar o evento `UserCreated` após a criação do usuário.
+- Expor um contrato HTTP simples para criação de usuário.
+- Preparar base testável para evolução futura de autenticação e autorização.
 
-## 3. Escopo
+## 3. Escopo e exclusões
 
-Incluído nesta versão:
+### Incluído
 
-- criação de usuário;
-- validação obrigatória de nome, e-mail e senha;
-- validação de formato de e-mail;
-- validação mínima de senha;
-- hash de senha antes da persistência;
-- validação de papéis permitidos;
-- garantia de ao menos um papel por usuário;
-- persistência de usuário, papéis e status;
-- status inicial `ACTIVE`;
-- suporte ao status `BLOCKED` no modelo;
-- publicação do evento `UserCreated`;
-- tratamento padronizado de erros para o endpoint de criação;
-- logs mínimos para criação de usuário e publicação de evento;
-- testes unitários, de persistência, mensageria e contrato HTTP.
+- Endpoint `POST /users`.
+- Criação de usuário.
+- Validação de nome obrigatório.
+- Validação de e-mail obrigatório e em formato válido.
+- Validação de senha obrigatória.
+- Validação de papéis permitidos.
+- Exigência de ao menos um papel.
+- Garantia de e-mail único.
+- Hash de senha antes da persistência.
+- Persistência de usuário no banco próprio do `auth-user-service`.
+- Uso dos papéis `STUDENT`, `TEACHER` e `ADMIN`.
+- Uso dos status `ACTIVE` e `BLOCKED`.
+- Status inicial `ACTIVE`.
+- Publicação do evento `UserCreated`.
+- Tratamento de erros esperados.
+- Observabilidade mínima para criação e publicação de evento.
+- Testes unitários, de persistência, mensageria e contrato HTTP.
 
-## 4. Fora de escopo
+### Fora de escopo
 
-Não faz parte desta versão:
+- Login.
+- JWT.
+- Refresh token.
+- Logout.
+- Bloqueio de usuário.
+- Desbloqueio de usuário.
+- Troca ou recuperação de senha.
+- Atualização de usuário.
+- Remoção de usuário.
+- Consulta de usuários.
+- `course-service`.
+- `notification-service`.
+- Consumo de eventos.
+- API Gateway.
+- Autenticação entre microsserviços.
 
-- login;
-- refresh token;
-- geração de token;
-- validação de token;
-- logout;
-- bloqueio de usuário;
-- desbloqueio de usuário;
-- troca ou recuperação de senha;
-- atualização de usuário;
-- remoção de usuário;
-- consulta pública ou interna de usuários;
-- implementação do `course-service`;
-- implementação do `notification-service`;
-- consumo de eventos;
-- API Gateway;
-- autenticação entre microsserviços.
+## 4. Fluxo principal
 
-## 5. Entidades
+1. Cliente envia uma requisição `POST /users` com nome, e-mail, senha e papéis.
+2. Controller valida o formato básico da entrada.
+3. Application service executa o caso de uso de criação de usuário.
+4. Domínio valida as regras de usuário, papéis e status inicial.
+5. Serviço consulta o repositório para verificar se o e-mail já existe.
+6. Senha em texto puro é transformada em hash por um componente dedicado.
+7. Usuário é persistido no banco próprio do `auth-user-service`.
+8. Evento `UserCreated` é montado com dados não sensíveis.
+9. Evento `UserCreated` é publicado no RabbitMQ.
+10. API retorna `201 Created` com os dados públicos do usuário criado.
 
-### User
+Fluxo resumido:
 
-Representa um usuário cadastrado na plataforma.
+```mermaid
+sequenceDiagram
+    participant Client as Client
+    participant Auth as auth-user-service
+    participant AuthDb as auth-user-db
+    participant RabbitMQ as RabbitMQ
 
-Campos esperados:
+    Client->>Auth: POST /users
+    Auth->>Auth: Validate request and business rules
+    Auth->>AuthDb: Check unique email
+    Auth->>Auth: Hash password
+    Auth->>AuthDb: Save user
+    Auth->>RabbitMQ: Publish UserCreated
+    Auth-->>Client: 201 Created
+```
 
-- `id`: identificador único.
-- `name`: nome do usuário.
-- `email`: e-mail único dentro do `auth-user-service`.
-- `passwordHash`: senha armazenada exclusivamente como hash.
-- `status`: status da conta.
-- `roles`: conjunto de papéis atribuídos ao usuário.
-- `createdAt`: data e hora de criação.
-- `updatedAt`: data e hora da última atualização.
+## 5. Endpoint `POST /users`
 
-Regras relacionadas:
+Cria um novo usuário no `auth-user-service`.
 
-- `name` é obrigatório e não pode ser vazio.
-- `email` é obrigatório, deve ter formato válido e deve ser único.
-- `passwordHash` deve ser gerado a partir da senha recebida.
-- `roles` deve conter ao menos um papel válido.
-- `status` deve iniciar como `ACTIVE`.
+Características:
 
-### Role
+- Deve ser público nesta primeira entrega, pois login e autenticação ainda estão fora de escopo.
+- Deve aceitar somente os campos necessários para criação.
+- Deve retornar apenas dados públicos do usuário.
+- Não deve retornar senha nem hash da senha.
+- Deve publicar `UserCreated` apenas quando a criação for concluída com sucesso.
 
-Papéis permitidos:
+Status de sucesso:
 
-- `STUDENT`;
-- `TEACHER`;
-- `ADMIN`.
+- `201 Created`.
 
-### UserStatus
+Status de erro esperados:
 
-Status permitidos:
+- `400 Bad Request` para entrada inválida.
+- `409 Conflict` para e-mail já cadastrado.
+- `500 Internal Server Error` para falhas inesperadas.
 
-- `ACTIVE`;
-- `BLOCKED`.
+## 6. Request e response
 
-Nesta versão, usuários são criados como `ACTIVE`. O fluxo de bloqueio fica fora do escopo.
-
-## 6. Endpoints
-
-### POST `/api/v1/users`
-
-Cria um novo usuário.
-
-Request body:
+### Request
 
 ```json
 {
@@ -126,17 +133,15 @@ Request body:
 }
 ```
 
-Regras do request:
+Regras:
 
-- `name` é obrigatório.
-- `email` é obrigatório e deve possuir formato válido.
-- `password` é obrigatória.
-- `roles` é obrigatório e deve possuir ao menos um item.
-- Cada item de `roles` deve ser um dos valores permitidos: `STUDENT`, `TEACHER` ou `ADMIN`.
+- `name` é obrigatório e não pode ser vazio.
+- `email` é obrigatório, não pode ser vazio e deve ter formato válido.
+- `password` é obrigatória e não pode ser vazia.
+- `roles` é obrigatório e deve conter ao menos um item.
+- Cada papel deve ser um dos valores: `STUDENT`, `TEACHER` ou `ADMIN`.
 
-Response de sucesso:
-
-Status HTTP: `201 Created`
+### Response de sucesso
 
 ```json
 {
@@ -149,23 +154,50 @@ Status HTTP: `201 Created`
 }
 ```
 
-Regras da resposta:
+Regras:
 
-- A resposta não deve retornar senha nem hash de senha.
-- O usuário retornado deve refletir o estado persistido.
-- A criação bem-sucedida deve publicar `UserCreated`.
+- `id` deve identificar o usuário criado.
+- `status` deve ser `ACTIVE`.
+- `roles` deve refletir os papéis persistidos.
+- `createdAt` deve representar o momento de criação.
+- A resposta nunca deve incluir `password` ou `passwordHash`.
 
-## 7. Eventos publicados
+## 7. Erros esperados
 
-### UserCreated
+Formato recomendado:
 
-Publicado pelo `auth-user-service` quando um novo usuário é criado com sucesso.
+```json
+{
+  "code": "USER_EMAIL_ALREADY_EXISTS",
+  "message": "Email already exists.",
+  "details": []
+}
+```
 
-Consumidor esperado:
+Erros:
 
-- `notification-service`.
+| Situação | HTTP status | Código |
+| --- | ---: | --- |
+| Nome ausente ou vazio | 400 | `USER_NAME_REQUIRED` |
+| E-mail ausente ou vazio | 400 | `USER_EMAIL_REQUIRED` |
+| E-mail em formato inválido | 400 | `USER_EMAIL_INVALID` |
+| Senha ausente ou vazia | 400 | `USER_PASSWORD_REQUIRED` |
+| Papéis ausentes ou vazios | 400 | `USER_ROLE_REQUIRED` |
+| Papel inválido | 400 | `USER_ROLE_INVALID` |
+| E-mail já cadastrado | 409 | `USER_EMAIL_ALREADY_EXISTS` |
+| Falha inesperada | 500 | `INTERNAL_ERROR` |
 
-Payload inicial:
+Regras:
+
+- Erros de validação devem ser determinísticos e cobertos por testes.
+- Erros internos não devem expor detalhes de banco, stack trace ou broker.
+- Logs internos podem conter contexto técnico, mas nunca senha ou hash.
+
+## 8. Evento `UserCreated`
+
+O evento `UserCreated` deve ser publicado após a criação bem-sucedida de um usuário.
+
+Payload:
 
 ```json
 {
@@ -180,142 +212,136 @@ Payload inicial:
 }
 ```
 
-Regras do evento:
+Regras:
 
 - O evento representa um fato já ocorrido.
-- O evento deve ser publicado somente após a criação do usuário.
 - `eventId` deve ser único.
-- `occurredAt` deve representar o momento da ocorrência do evento.
-- O payload não deve conter senha nem hash de senha.
+- `eventType` deve ser `UserCreated`.
+- `occurredAt` deve indicar quando o evento ocorreu.
+- `payload.userId` deve ser o identificador do usuário criado.
+- O evento não deve conter senha, hash de senha ou outros dados sensíveis.
+- O evento deve ser publicado somente após a persistência bem-sucedida.
 
-A convenção definitiva de exchange, fila e routing key ainda não está definida no HLD e deve ser tratada em documentação própria ou no plano de implementação quando necessário.
+Observação:
 
-## 8. Erros
+- A convenção definitiva de exchange, routing key, retry e dead-letter queue ainda não está definida em ADR. A primeira implementação deve documentar qualquer escolha operacional em plano de implementação ou ADR se a decisão afetar a arquitetura.
 
-Erros esperados para `POST /api/v1/users`:
+## 9. Observabilidade mínima
 
-| Situação | Status HTTP | Código sugerido |
-| --- | ---: | --- |
-| Nome ausente ou vazio | 400 | `USER_NAME_REQUIRED` |
-| E-mail ausente | 400 | `USER_EMAIL_REQUIRED` |
-| E-mail inválido | 400 | `USER_EMAIL_INVALID` |
-| Senha ausente | 400 | `USER_PASSWORD_REQUIRED` |
-| Senha fora da política mínima | 400 | `USER_PASSWORD_INVALID` |
-| Lista de papéis ausente ou vazia | 400 | `USER_ROLE_REQUIRED` |
-| Papel inválido | 400 | `USER_ROLE_INVALID` |
-| E-mail já cadastrado | 409 | `USER_EMAIL_ALREADY_EXISTS` |
-| Falha inesperada | 500 | `INTERNAL_ERROR` |
+Logs esperados:
 
-Formato esperado de erro:
-
-```json
-{
-  "code": "USER_EMAIL_ALREADY_EXISTS",
-  "message": "Email already exists.",
-  "details": []
-}
-```
-
-Regras de erro:
-
-- Mensagens externas não devem expor detalhes internos de persistência ou mensageria.
-- Erros de validação devem ser consistentes e testáveis.
-- Erros inesperados devem ser registrados em log com contexto técnico suficiente para diagnóstico.
-
-## 9. Segurança
-
-- Senhas nunca devem ser persistidas em texto puro.
-- Senhas nunca devem ser retornadas em respostas HTTP.
-- Hash de senha nunca deve ser retornado em respostas HTTP.
-- Logs não devem conter senha nem hash de senha.
-- O algoritmo de hash deve ser adequado para senhas, como BCrypt.
-- O endpoint de criação de usuário pode ser público nesta primeira versão, pois login e autorização ainda estão fora do escopo.
-- Papéis enviados no cadastro devem ser validados contra a lista permitida.
-- O status inicial deve ser `ACTIVE`.
-- Usuários `BLOCKED` serão relevantes para autenticação futura, mas autenticação está fora do escopo desta versão.
-
-## 10. Observabilidade
-
-O serviço deve registrar logs mínimos para:
-
-- recebimento de solicitação de criação de usuário, sem dados sensíveis;
-- sucesso na criação de usuário;
+- tentativa de criação de usuário, sem senha;
 - falha de validação;
-- conflito de e-mail duplicado;
-- publicação bem-sucedida do evento `UserCreated`;
-- falha na publicação do evento `UserCreated`.
+- tentativa de criação com e-mail duplicado;
+- usuário criado com sucesso;
+- tentativa de publicação do evento `UserCreated`;
+- evento `UserCreated` publicado com sucesso;
+- falha inesperada na criação ou publicação.
 
-Métricas e health checks esperados:
+Health checks esperados:
 
-- health check da aplicação;
-- health check de conexão com PostgreSQL;
-- health check de conexão com RabbitMQ, quando a integração de mensageria estiver ativa;
-- métrica ou log estruturado para tentativas de criação de usuário;
-- métrica ou log estruturado para falhas de criação de usuário;
-- métrica ou log estruturado para publicação de eventos.
+- status da aplicação;
+- conexão com PostgreSQL;
+- conexão com RabbitMQ quando a publicação estiver ativa.
 
-Quando houver suporte a correlação, logs de requisição e evento devem carregar um identificador de correlação ou o `eventId`.
+Correlação:
 
-## 11. Testes esperados
+- Quando disponível, logs de requisição e logs de evento devem carregar um identificador de correlação.
+- Logs de evento devem incluir `eventId`.
 
-### Testes unitários de domínio/aplicação
+Dados sensíveis:
+
+- Nunca registrar senha em texto puro.
+- Nunca registrar hash de senha.
+
+## 10. Dependências
+
+Dependências técnicas da entrega:
+
+- Java 21.
+- Spring Boot 3.
+- Banco PostgreSQL próprio do `auth-user-service`.
+- RabbitMQ para publicação de eventos.
+- Componente de hash de senha, preferencialmente BCrypt.
+- Camada de persistência para usuários e papéis.
+- Tratamento padronizado de erros HTTP.
+- Testes automatizados.
+
+Dependências arquiteturais:
+
+- `docs/domain-context.md`.
+- `docs/hld.md`.
+- `docs/decisions/adr-001-microservices-database-per-service.md`.
+- Infraestrutura local com PostgreSQL e RabbitMQ.
+
+Não há dependência funcional de `course-service` ou `notification-service` para esta entrega.
+
+## 11. Critérios de aceite técnicos
+
+- `POST /users` cria um usuário válido e retorna `201 Created`.
+- Usuário é persistido no banco próprio do `auth-user-service`.
+- E-mail duplicado é rejeitado com `409 Conflict`.
+- Nome ausente ou vazio é rejeitado com `400 Bad Request`.
+- E-mail ausente, vazio ou inválido é rejeitado com `400 Bad Request`.
+- Senha ausente ou vazia é rejeitada com `400 Bad Request`.
+- Papéis ausentes, vazios ou inválidos são rejeitados com `400 Bad Request`.
+- Senha é persistida somente como hash.
+- A resposta HTTP não expõe senha nem hash.
+- Usuários são criados com status `ACTIVE`.
+- Os papéis `STUDENT`, `TEACHER` e `ADMIN` são aceitos.
+- O status `BLOCKED` existe no modelo para uso futuro, mas não há fluxo de bloqueio nesta entrega.
+- `UserCreated` é publicado após criação bem-sucedida.
+- `UserCreated` não contém dados sensíveis.
+- O serviço não acessa banco de outro microsserviço.
+- Testes automatizados relevantes passam.
+- O projeto compila.
+
+## 12. Testes esperados
+
+### Testes unitários
 
 - Deve criar usuário válido com status `ACTIVE`.
 - Deve rejeitar nome ausente ou vazio.
-- Deve rejeitar e-mail ausente.
+- Deve rejeitar e-mail ausente ou vazio.
 - Deve rejeitar e-mail inválido.
-- Deve rejeitar senha ausente.
-- Deve rejeitar senha fora da política mínima.
-- Deve rejeitar lista de papéis vazia.
+- Deve rejeitar senha ausente ou vazia.
+- Deve rejeitar papéis ausentes ou vazios.
 - Deve rejeitar papel inválido.
-- Deve garantir que senha seja convertida em hash antes da persistência.
-- Deve garantir que a senha original não seja exposta no objeto de resposta.
+- Deve aceitar `STUDENT`, `TEACHER` e `ADMIN`.
+- Deve gerar hash de senha antes da persistência.
+- Deve impedir exposição de senha e hash na resposta.
 
 ### Testes de persistência
 
-- Deve persistir usuário com dados válidos.
+- Deve persistir usuário válido.
 - Deve persistir papéis associados ao usuário.
-- Deve impedir e-mail duplicado.
-- Deve recuperar usuário pelo e-mail para validação de unicidade.
+- Deve persistir status `ACTIVE`.
+- Deve garantir unicidade de e-mail.
+- Deve permitir consulta por e-mail para validação de duplicidade.
 
 ### Testes de mensageria
 
 - Deve publicar `UserCreated` após criação bem-sucedida.
 - Não deve publicar `UserCreated` quando a criação falhar.
-- O evento publicado deve conter `eventId`, `eventType`, `occurredAt` e payload esperado.
-- O evento publicado não deve conter senha nem hash de senha.
+- Evento publicado deve conter `eventId`, `eventType`, `occurredAt` e payload.
+- Evento publicado não deve conter senha nem hash.
 
-### Testes de controller/contrato HTTP
+### Testes de contrato HTTP
 
-- `POST /api/v1/users` deve retornar `201 Created` para request válido.
-- `POST /api/v1/users` deve retornar `400 Bad Request` para dados inválidos.
-- `POST /api/v1/users` deve retornar `409 Conflict` para e-mail duplicado.
-- A resposta de sucesso não deve conter senha nem hash de senha.
-- A resposta de erro deve seguir o formato padronizado.
+- `POST /users` deve retornar `201 Created` para request válido.
+- `POST /users` deve retornar `400 Bad Request` para entrada inválida.
+- `POST /users` deve retornar `409 Conflict` para e-mail duplicado.
+- Response de sucesso deve seguir o contrato definido.
+- Response de erro deve seguir o formato definido.
 
-## 12. Critérios de aceite
+## 13. Riscos e mitigação
 
-- O endpoint `POST /api/v1/users` cria usuários válidos.
-- Usuários são persistidos no banco próprio do `auth-user-service`.
-- E-mails duplicados são rejeitados.
-- Senhas são persistidas apenas como hash.
-- A resposta de criação não expõe senha nem hash.
-- Usuários são criados com status `ACTIVE`.
-- Os papéis `STUDENT`, `TEACHER` e `ADMIN` são aceitos.
-- Papéis inválidos são rejeitados.
-- Usuários sem papel são rejeitados.
-- O evento `UserCreated` é publicado após criação bem-sucedida.
-- O evento `UserCreated` não expõe dados sensíveis.
-- Os testes esperados são implementados e passam.
-- O projeto compila.
-- Nenhum outro serviço ou banco de outro serviço é acessado diretamente.
-
-## 13. Riscos
-
-- Publicar o evento após persistir o usuário sem uma estratégia transacional pode gerar inconsistência se a publicação falhar.
-- Definir exchange, fila e routing key sem uma convenção global pode criar retrabalho futuro.
-- Permitir escolha de papéis no cadastro público pode ser inadequado para produção, especialmente para `ADMIN`.
-- Política de senha fraca pode comprometer a segurança do serviço.
-- Falhas de validação inconsistentes podem dificultar uso por clientes externos.
-- Ausência de autenticação nesta versão limita o uso seguro de operações futuras.
-- Sem idempotência ou outbox, retries de criação e publicação podem exigir cuidado em versões futuras.
+| Risco | Mitigação |
+| --- | --- |
+| Falha ao publicar `UserCreated` após persistir o usuário pode gerar inconsistência. | Registrar erro com contexto, cobrir em testes e avaliar padrão outbox em ADR futura. |
+| Cadastro público permitindo papel `ADMIN` pode ser inseguro em produção. | Aceitar nesta entrega de aprendizado, mas registrar como ponto para revisão antes de autenticação real. |
+| Política de senha insuficiente pode reduzir segurança. | Definir validação mínima agora e evoluir política em FDD específico quando autenticação entrar no escopo. |
+| Erros inconsistentes podem dificultar integração de clientes. | Padronizar formato de erro desde o primeiro endpoint e cobrir com testes de contrato. |
+| Logs podem vazar dados sensíveis. | Proibir senha e hash em logs, responses e eventos; validar em revisão de código. |
+| Convenções de RabbitMQ ainda não estão formalizadas. | Manter decisão operacional mínima no plano de implementação e criar ADR se a convenção se tornar arquitetural. |
+| Duplicidade de e-mail pode ocorrer em concorrência se validada apenas na aplicação. | Usar restrição única no banco além da validação na aplicação. |
