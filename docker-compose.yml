@@ -1,0 +1,91 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: ead-rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ead
+      RABBITMQ_DEFAULT_PASS: ead
+    volumes:
+      - rabbitmq_mnesia_data:/var/lib/rabbitmq/mnesia
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - ead-network
+
+  auth-user-db:
+    image: postgres:16-alpine
+    container_name: ead-auth-user-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: auth_user_db
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_user_password
+    volumes:
+      - auth_user_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_user_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - ead-network
+
+  course-db:
+    image: postgres:16-alpine
+    container_name: ead-course-db
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: course_db
+      POSTGRES_USER: course
+      POSTGRES_PASSWORD: course_password
+    volumes:
+      - course_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U course -d course_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - ead-network
+
+  notification-db:
+    image: postgres:16-alpine
+    container_name: ead-notification-db
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_DB: notification_db
+      POSTGRES_USER: notification
+      POSTGRES_PASSWORD: notification_password
+    volumes:
+      - notification_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notification -d notification_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - ead-network
+
+volumes:
+  rabbitmq_mnesia_data:
+  auth_user_db_data:
+  course_db_data:
+  notification_db_data:
+
+networks:
+  ead-network:
+    driver: bridge
