@@ -1,1 +1,3 @@
-rootProject.name = 'Plataforma-de-ensino-online'
+rootProject.name = 'ead-platform'
+
+include 'auth-user-service'

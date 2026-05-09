@@ -1,10 +1,10 @@
-package com.yuriromao;
+package com.yuriromao.ead.authuser;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class PlataformaDeEnsinoOnlineApplicationTests {
+class AuthUserServiceApplicationTests {
 
 	@Test
 	void contextLoads() {
