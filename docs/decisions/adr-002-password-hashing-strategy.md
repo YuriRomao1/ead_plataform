@@ -6,19 +6,19 @@ Accepted
 
 ## Context
 
-The `auth-user-service` is responsible for user credentials in the EAD Platform.
+The system needs to store user passwords securely.
 
-According to the domain rules, passwords must never be stored in plain text. The first delivery of the `auth-user-service` includes user creation and must persist only a password hash.
+The first version of the `auth-user-service` includes user creation and must persist passwords only as hashes. This version must be professional enough to follow secure development practices, but simple enough to evolve gradually as the platform grows.
 
-The project needs an initial password hashing strategy that is secure enough for the learning MVP, supported by Spring Boot, easy to test and simple to evolve later if needed.
+The password hashing strategy must be supported by the Java and Spring Boot ecosystem, easy to test, and suitable for the first delivery of the project.
 
 ## Decision
 
-We will use BCrypt as the initial password hashing strategy.
+We will use BCrypt to hash passwords in the first version of the `auth-user-service`.
 
-The implementation should use a dedicated password hashing component instead of calling the hashing library directly from controllers or domain entities.
+Passwords must never be stored in plain text. The service must store only the generated BCrypt hash.
 
-The BCrypt strength factor should be configurable by application configuration when the service is implemented.
+The implementation should keep password hashing behind a dedicated component so the strategy can evolve later without spreading hashing details across the application.
 
 ## Consequences
 
@@ -27,29 +27,25 @@ The BCrypt strength factor should be configurable by application configuration w
 - BCrypt is designed for password hashing.
 - BCrypt is widely supported in Java and Spring Security.
 - BCrypt includes a salt in the generated hash.
-- The work factor can be increased as hardware capacity evolves.
-- The strategy is simple enough for the first version of the `auth-user-service`.
+- BCrypt is simple to adopt in the first version of the project.
+- The hashing strategy can evolve later behind a dedicated component.
 
 ### Negative
 
-- BCrypt is CPU-intensive by design, so high signup or login volume can increase resource usage.
-- The chosen work factor will require performance testing before production use.
-- Future migration to another algorithm will require compatibility handling for existing hashes.
+- BCrypt is CPU-intensive by design.
+- The work factor will need performance evaluation before production use.
+- Future migration to another algorithm will require compatibility with existing hashes.
 
 ## Alternatives Considered
 
-### Plain text passwords
+### BCrypt
 
-Rejected because passwords must never be stored in plain text.
-
-### Reversible encryption
-
-Rejected because the service does not need to recover the original password. Password verification should compare a raw candidate against a stored hash.
-
-### PBKDF2
-
-Rejected for the initial version because BCrypt is simpler to adopt with Spring Security defaults and is enough for the current MVP.
+Accepted because it is secure enough for the first version, widely supported in the Java ecosystem, and simple to integrate with Spring Boot.
 
 ### Argon2
 
-Rejected for the initial version. Argon2 is a strong modern option, but BCrypt is sufficient for the first delivery and simpler for the current project stage. Argon2 can be reconsidered in a future ADR if security requirements increase.
+Rejected for the first version. Argon2 is a strong modern password hashing option, but BCrypt is simpler for the current stage of the project and is enough for the initial learning MVP.
+
+### Plain text password
+
+Rejected because storing passwords in plain text is insecure and violates the project rule that passwords must be stored only as hashes.
