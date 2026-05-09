@@ -34,7 +34,8 @@ Fora de escopo:
 ## Premissas técnicas
 
 - O `auth-user-service` deve ser criado como serviço isolado, com seu próprio módulo/diretório e banco PostgreSQL.
-- O serviço deve usar Java 21 e Spring Boot 3.
+- O serviço deve usar Java 25 e Spring Boot 4.0.x.
+- O build deve usar Gradle 9.x e dependências gerenciadas pelo plugin/BOM do Spring Boot sempre que possível.
 - O serviço deve se conectar ao banco `auth_user_db` definido no `docker-compose.yml`.
 - O serviço deve publicar eventos no RabbitMQ local definido no `docker-compose.yml`.
 - Controllers devem apenas receber requisições, validar entrada, chamar casos de uso e retornar respostas.
@@ -56,7 +57,8 @@ Fora de escopo:
 - **Critérios de aceite:**
   - O módulo `auth-user-service` existe.
   - A aplicação Spring Boot inicia em teste de contexto.
-  - O módulo usa Java 21.
+  - O módulo usa Java 25.
+  - O módulo usa Spring Boot 4.0.x.
   - Nenhum código de negócio foi implementado nesta tarefa.
 - **Testes esperados:**
   - Teste de carregamento de contexto da aplicação.
@@ -79,6 +81,7 @@ Fora de escopo:
   - Usuário e senha de banco são compatíveis com a infraestrutura local.
   - A configuração de teste não depende do banco local diretamente quando testes automatizados usarem Testcontainers ou perfil dedicado.
   - O serviço não referencia bancos de outros microsserviços.
+  - Dependências compatíveis com Spring Boot 4.0.x são gerenciadas pelo plugin/BOM do Spring Boot sempre que possível.
 - **Testes esperados:**
   - Teste de contexto com profile de teste.
   - Validação de configuração de datasource.

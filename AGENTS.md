@@ -74,9 +74,17 @@ Do not change architecture without creating or updating an ADR.
 
 ## Java Rules
 
-Use Java 21.
+Use Java 25.
 
-Use Spring Boot 3.
+Use Spring Boot 4.
+
+Use dependency versions managed by the Spring Boot Gradle plugin whenever possible.
+
+Current baseline:
+
+- Java 25
+- Spring Boot 4.0.x
+- Gradle 9.x
 
 Prefer constructor injection.
 

@@ -258,14 +258,17 @@ Dados sensíveis:
 
 Dependências técnicas da entrega:
 
-- Java 21.
-- Spring Boot 3.
+- Java 25.
+- Spring Boot 4.0.x.
+- Gradle 9.x.
 - Banco PostgreSQL próprio do `auth-user-service`.
 - RabbitMQ para publicação de eventos.
 - Componente de hash de senha, preferencialmente BCrypt.
 - Camada de persistência para usuários e papéis.
 - Tratamento padronizado de erros HTTP.
 - Testes automatizados.
+
+As versões de bibliotecas devem ser gerenciadas preferencialmente pelo plugin/BOM do Spring Boot para reduzir conflitos entre dependências.
 
 Dependências arquiteturais:
 

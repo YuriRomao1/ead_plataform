@@ -17,6 +17,16 @@ A professional Java microservices learning project built with AI-assisted softwa
 - course-service
 - notification-service
 
+## Technical Baseline
+
+- Java 25
+- Spring Boot 4.0.x
+- Gradle 9.x
+- PostgreSQL 16
+- RabbitMQ 3 with Management UI
+
+Dependency versions should be managed by the Spring Boot Gradle plugin whenever possible.
+
 ## Architecture
 
 The platform follows a microservices architecture with database per service.
