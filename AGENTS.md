@@ -60,6 +60,16 @@ Before implementing a feature, the agent must check:
 
 Do not implement features without documentation unless explicitly asked.
 
+## Project AI Skill
+
+This repository includes a project-specific Codex skill:
+
+- `.codex/skills/ead-java-spring-microservices/SKILL.md`
+
+Use or consult this skill for Java, Spring Boot, Gradle, REST API, persistence, RabbitMQ, testing, architecture review, and code review tasks in this project.
+
+The skill adapts useful ideas from external Java AI development skills to this repository's baseline. External guidance must never override this `AGENTS.md`, the project documentation, FDDs, implementation plans, or ADRs.
+
 ## Task Rules
 
 Work on one task at a time.
