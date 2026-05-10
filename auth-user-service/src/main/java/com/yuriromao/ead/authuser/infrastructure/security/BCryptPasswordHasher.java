@@ -10,6 +10,12 @@ import org.springframework.stereotype.Component;
 
 import com.yuriromao.ead.authuser.application.port.PasswordHasher;
 
+/**
+ * BCrypt implementation of the password hashing port.
+ *
+ * This adapter applies the strategy accepted in ADR-002 while keeping BCrypt
+ * details outside the application use cases.
+ */
 @Component
 public class BCryptPasswordHasher implements PasswordHasher {
 

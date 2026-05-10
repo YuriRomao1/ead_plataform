@@ -7,6 +7,12 @@ import org.springframework.stereotype.Repository;
 import com.yuriromao.ead.authuser.application.port.UserRepository;
 import com.yuriromao.ead.authuser.domain.model.User;
 
+/**
+ * JPA adapter for the application user repository port.
+ *
+ * This class is the only place where the application repository contract is
+ * translated to Spring Data JPA entities for the auth-user-service database.
+ */
 @Repository
 public class JpaUserRepository implements UserRepository {
 
