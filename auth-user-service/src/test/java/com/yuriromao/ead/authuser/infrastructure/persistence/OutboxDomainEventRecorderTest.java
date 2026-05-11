@@ -1,0 +1,82 @@
+package com.yuriromao.ead.authuser.infrastructure.persistence;
+
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Map;
+import java.util.UUID;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.jdbc.Sql;
+
+import com.yuriromao.ead.authuser.application.event.UserCreatedEvent;
+import com.yuriromao.ead.authuser.application.event.UserCreatedPayload;
+import com.yuriromao.ead.authuser.application.port.DomainEventRecorder;
+
+@SpringBootTest
+@ActiveProfiles("test")
+@Sql(statements = "delete from outbox_events")
+class OutboxDomainEventRecorderTest {
+
+	private static final UUID USER_ID = UUID.fromString("6fbe1f59-aace-4bb9-8ff6-9da5e1183f17");
+
+	@Autowired
+	private DomainEventRecorder domainEventRecorder;
+
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
+
+	@Test
+	void shouldRecordUserCreatedEventAsPendingOutboxEvent() {
+		UserCreatedEvent event = userCreatedEvent();
+
+		domainEventRecorder.record(event);
+
+		Map<String, Object> row = jdbcTemplate.queryForMap("""
+				select event_id,
+				       event_type,
+				       occurred_at,
+				       payload::text as payload,
+				       status,
+				       attempts,
+				       last_error,
+				       created_at,
+				       updated_at,
+				       published_at,
+				       next_attempt_at
+				from outbox_events
+				where event_id = ?
+				""", event.eventId());
+		String payload = (String) row.get("payload");
+
+		assertAll(
+				() -> assertEquals(event.eventId(), row.get("event_id")),
+				() -> assertEquals(UserCreatedEvent.EVENT_TYPE, row.get("event_type")),
+				() -> assertNotNull(row.get("occurred_at")),
+				() -> assertEquals(OutboxEventStatus.PENDING.name(), row.get("status")),
+				() -> assertEquals(0, row.get("attempts")),
+				() -> assertNull(row.get("last_error")),
+				() -> assertNotNull(row.get("created_at")),
+				() -> assertNotNull(row.get("updated_at")),
+				() -> assertNull(row.get("published_at")),
+				() -> assertNotNull(row.get("next_attempt_at")),
+				() -> assertTrue(payload.contains(USER_ID.toString())),
+				() -> assertTrue(payload.contains("User Name")),
+				() -> assertTrue(payload.contains("user@email.com")),
+				() -> assertFalse(payload.toLowerCase().contains("password")),
+				() -> assertFalse(payload.toLowerCase().contains("hash")));
+	}
+
+	private UserCreatedEvent userCreatedEvent() {
+		UserCreatedPayload payload = new UserCreatedPayload(USER_ID, "User Name", "user@email.com");
+		return UserCreatedEvent.create(payload);
+	}
+}

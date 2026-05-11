@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.yuriromao.ead.authuser.application.exception.UserEmailAlreadyExistsException;
 import com.yuriromao.ead.authuser.application.event.UserCreatedEvent;
 import com.yuriromao.ead.authuser.application.event.UserCreatedEventFactory;
-import com.yuriromao.ead.authuser.application.port.EventPublisher;
+import com.yuriromao.ead.authuser.application.port.DomainEventRecorder;
 import com.yuriromao.ead.authuser.application.port.PasswordHasher;
 import com.yuriromao.ead.authuser.application.port.UserRepository;
 import com.yuriromao.ead.authuser.domain.model.User;
@@ -28,12 +28,12 @@ public class CreateUserUseCase {
 
 	private final UserRepository userRepository;
 	private final PasswordHasher passwordHasher;
-	private final EventPublisher eventPublisher;
+	private final DomainEventRecorder domainEventRecorder;
 
-	public CreateUserUseCase(UserRepository userRepository, PasswordHasher passwordHasher, EventPublisher eventPublisher) {
+	public CreateUserUseCase(UserRepository userRepository, PasswordHasher passwordHasher, DomainEventRecorder domainEventRecorder) {
 		this.userRepository = Objects.requireNonNull(userRepository, "userRepository must not be null");
 		this.passwordHasher = Objects.requireNonNull(passwordHasher, "passwordHasher must not be null");
-		this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher must not be null");
+		this.domainEventRecorder = Objects.requireNonNull(domainEventRecorder, "domainEventRecorder must not be null");
 	}
 
 	@Transactional
@@ -49,9 +49,9 @@ public class CreateUserUseCase {
 		User savedUser = userRepository.save(user);
 		UserCreatedEvent event = UserCreatedEventFactory.from(savedUser);
 
-		LOGGER.info("Publishing UserCreated event. eventId={} userId={}", event.eventId(), savedUser.getId());
-		eventPublisher.publish(event);
-		LOGGER.info("Published UserCreated event. eventId={} userId={}", event.eventId(), savedUser.getId());
+		LOGGER.info("Recording UserCreated event in outbox. eventId={} userId={}", event.eventId(), savedUser.getId());
+		domainEventRecorder.record(event);
+		LOGGER.info("Recorded UserCreated event in outbox. eventId={} userId={}", event.eventId(), savedUser.getId());
 
 		return CreateUserResult.from(savedUser);
 	}

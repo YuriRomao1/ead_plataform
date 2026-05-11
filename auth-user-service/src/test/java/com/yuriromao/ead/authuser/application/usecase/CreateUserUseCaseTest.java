@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import com.yuriromao.ead.authuser.application.exception.UserEmailAlreadyExistsException;
 import com.yuriromao.ead.authuser.application.event.UserCreatedEvent;
-import com.yuriromao.ead.authuser.application.port.EventPublisher;
+import com.yuriromao.ead.authuser.application.port.DomainEventRecorder;
 import com.yuriromao.ead.authuser.application.port.PasswordHasher;
 import com.yuriromao.ead.authuser.application.port.UserRepository;
 import com.yuriromao.ead.authuser.domain.model.User;
@@ -31,8 +31,8 @@ class CreateUserUseCaseTest {
 
 	private final FakeUserRepository userRepository = new FakeUserRepository();
 	private final FakePasswordHasher passwordHasher = new FakePasswordHasher(PASSWORD_HASH);
-	private final FakeEventPublisher eventPublisher = new FakeEventPublisher(userRepository);
-	private final CreateUserUseCase createUserUseCase = new CreateUserUseCase(userRepository, passwordHasher, eventPublisher);
+	private final FakeDomainEventRecorder domainEventRecorder = new FakeDomainEventRecorder(userRepository);
+	private final CreateUserUseCase createUserUseCase = new CreateUserUseCase(userRepository, passwordHasher, domainEventRecorder);
 
 	@Test
 	void shouldCreateValidUser() {
@@ -56,7 +56,7 @@ class CreateUserUseCaseTest {
 				() -> assertEquals(1, userRepository.existsByEmailCalls),
 				() -> assertEquals(0, passwordHasher.hashCalls),
 				() -> assertFalse(userRepository.saved),
-				() -> assertFalse(eventPublisher.published));
+				() -> assertFalse(domainEventRecorder.recorded));
 	}
 
 	@Test
@@ -92,32 +92,32 @@ class CreateUserUseCaseTest {
 	}
 
 	@Test
-	void shouldPublishUserCreatedEventAfterSavingUser() {
+	void shouldRecordUserCreatedEventAfterSavingUser() {
 		createUserUseCase.execute(validCommand());
 
 		assertAll(
-				() -> assertTrue(eventPublisher.published),
-				() -> assertTrue(eventPublisher.publishedAfterSave),
-				() -> assertNotNull(eventPublisher.publishedEvent.eventId()),
-				() -> assertEquals("UserCreated", eventPublisher.publishedEvent.eventType()));
+				() -> assertTrue(domainEventRecorder.recorded),
+				() -> assertTrue(domainEventRecorder.recordedAfterSave),
+				() -> assertNotNull(domainEventRecorder.recordedEvent.eventId()),
+				() -> assertEquals("UserCreated", domainEventRecorder.recordedEvent.eventType()));
 	}
 
 	@Test
-	void shouldPublishEventWithCreatedUserPayload() {
+	void shouldRecordEventWithCreatedUserPayload() {
 		createUserUseCase.execute(validCommand());
 
 		assertAll(
-				() -> assertEquals(userRepository.savedUser.getId(), eventPublisher.publishedEvent.payload().userId()),
-				() -> assertEquals(NAME, eventPublisher.publishedEvent.payload().name()),
-				() -> assertEquals(EMAIL, eventPublisher.publishedEvent.payload().email()));
+				() -> assertEquals(userRepository.savedUser.getId(), domainEventRecorder.recordedEvent.payload().userId()),
+				() -> assertEquals(NAME, domainEventRecorder.recordedEvent.payload().name()),
+				() -> assertEquals(EMAIL, domainEventRecorder.recordedEvent.payload().email()));
 	}
 
 	@Test
-	void shouldNotPublishEventWhenValidationFails() {
+	void shouldNotRecordEventWhenValidationFails() {
 		CreateUserCommand command = new CreateUserCommand(NAME, "invalid-email", PASSWORD, Set.of(UserRole.STUDENT));
 
 		assertThrows(IllegalArgumentException.class, () -> createUserUseCase.execute(command));
-		assertFalse(eventPublisher.published);
+		assertFalse(domainEventRecorder.recorded);
 	}
 
 	@Test
@@ -176,22 +176,22 @@ class CreateUserUseCaseTest {
 		}
 	}
 
-	private static final class FakeEventPublisher implements EventPublisher {
+	private static final class FakeDomainEventRecorder implements DomainEventRecorder {
 
 		private final FakeUserRepository userRepository;
-		private boolean published;
-		private boolean publishedAfterSave;
-		private UserCreatedEvent publishedEvent;
+		private boolean recorded;
+		private boolean recordedAfterSave;
+		private UserCreatedEvent recordedEvent;
 
-		private FakeEventPublisher(FakeUserRepository userRepository) {
+		private FakeDomainEventRecorder(FakeUserRepository userRepository) {
 			this.userRepository = userRepository;
 		}
 
 		@Override
-		public void publish(UserCreatedEvent event) {
-			this.published = true;
-			this.publishedAfterSave = userRepository.saved;
-			this.publishedEvent = event;
+		public void record(UserCreatedEvent event) {
+			this.recorded = true;
+			this.recordedAfterSave = userRepository.saved;
+			this.recordedEvent = event;
 		}
 	}
 }

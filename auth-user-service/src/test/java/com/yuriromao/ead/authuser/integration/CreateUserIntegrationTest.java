@@ -1,35 +1,33 @@
 package com.yuriromao.ead.authuser.integration;
 
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.Map;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 
 import com.yuriromao.ead.authuser.application.event.UserCreatedEvent;
-import com.yuriromao.ead.authuser.application.port.EventPublisher;
 import com.yuriromao.ead.authuser.application.usecase.CreateUserCommand;
 import com.yuriromao.ead.authuser.application.usecase.CreateUserUseCase;
 import com.yuriromao.ead.authuser.domain.model.UserRole;
@@ -39,7 +37,7 @@ import com.yuriromao.ead.authuser.infrastructure.persistence.UserJpaRepository;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Sql(statements = { "delete from user_roles", "delete from users" })
+@Sql(statements = { "delete from outbox_events", "delete from user_roles", "delete from users" })
 class CreateUserIntegrationTest {
 
 	private static final String NAME = "Integration User";
@@ -55,11 +53,11 @@ class CreateUserIntegrationTest {
 	@Autowired
 	private UserJpaRepository userJpaRepository;
 
-	@MockitoBean
-	private EventPublisher eventPublisher;
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
 
 	@Test
-	void shouldCreateUserThroughHttpAndPersistHashAndPublishEvent() throws Exception {
+	void shouldCreateUserThroughHttpAndPersistHashAndRecordOutboxEvent() throws Exception {
 		mockMvc.perform(post("/users")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(validRequest(EMAIL)))
@@ -76,42 +74,46 @@ class CreateUserIntegrationTest {
 				.andExpect(MockMvcResultMatchers.content().string(not(containsString(PASSWORD))));
 
 		UserJpaEntity persistedUser = findUserByEmail(EMAIL);
-		ArgumentCaptor<UserCreatedEvent> eventCaptor = ArgumentCaptor.forClass(UserCreatedEvent.class);
-		verify(eventPublisher).publish(eventCaptor.capture());
-		UserCreatedEvent event = eventCaptor.getValue();
+		Map<String, Object> outboxEvent = findSingleOutboxEvent();
+		String payload = (String) outboxEvent.get("payload");
 
 		assertAll(
 				() -> assertNotEquals(PASSWORD, persistedUser.getPasswordHash()),
 				() -> assertTrue(persistedUser.getPasswordHash().startsWith("$2")),
-				() -> assertEquals(persistedUser.getId(), event.payload().userId()),
-				() -> assertEquals(NAME, event.payload().name()),
-				() -> assertEquals(EMAIL, event.payload().email()));
+				() -> assertNotNull(outboxEvent.get("event_id")),
+				() -> assertEquals(UserCreatedEvent.EVENT_TYPE, outboxEvent.get("event_type")),
+				() -> assertEquals("PENDING", outboxEvent.get("status")),
+				() -> assertEquals(0, outboxEvent.get("attempts")),
+				() -> assertTrue(payload.contains(persistedUser.getId().toString())),
+				() -> assertTrue(payload.contains(NAME)),
+				() -> assertTrue(payload.contains(EMAIL)),
+				() -> assertFalse(payload.toLowerCase().contains("password")),
+				() -> assertFalse(payload.toLowerCase().contains("hash")));
 	}
 
 	@Test
-	void shouldPersistUserAndPublishUserCreatedEvent() {
+	void shouldPersistUserAndRecordUserCreatedOutboxEvent() {
 		createUserUseCase.execute(new CreateUserCommand(NAME, EMAIL, PASSWORD, Set.of(UserRole.STUDENT)));
 
 		UserJpaEntity persistedUser = findUserByEmail(EMAIL);
-		ArgumentCaptor<UserCreatedEvent> eventCaptor = ArgumentCaptor.forClass(UserCreatedEvent.class);
-		verify(eventPublisher).publish(eventCaptor.capture());
-		UserCreatedEvent event = eventCaptor.getValue();
+		Map<String, Object> outboxEvent = findSingleOutboxEvent();
+		String payload = (String) outboxEvent.get("payload");
 
 		assertAll(
 				() -> assertEquals(NAME, persistedUser.getName()),
 				() -> assertEquals(EMAIL, persistedUser.getEmail()),
 				() -> assertNotEquals(PASSWORD, persistedUser.getPasswordHash()),
 				() -> assertTrue(persistedUser.getPasswordHash().startsWith("$2")),
-				() -> assertEquals(persistedUser.getId(), event.payload().userId()),
-				() -> assertEquals(NAME, event.payload().name()),
-				() -> assertEquals(EMAIL, event.payload().email()),
-				() -> assertEquals(UserCreatedEvent.EVENT_TYPE, event.eventType()));
+				() -> assertEquals(UserCreatedEvent.EVENT_TYPE, outboxEvent.get("event_type")),
+				() -> assertEquals("PENDING", outboxEvent.get("status")),
+				() -> assertTrue(payload.contains(persistedUser.getId().toString())),
+				() -> assertTrue(payload.contains(NAME)),
+				() -> assertTrue(payload.contains(EMAIL)));
 	}
 
 	@Test
-	void shouldReturnConflictAndNotPublishEventWhenEmailAlreadyExistsThroughHttp() throws Exception {
+	void shouldReturnConflictAndNotRecordNewOutboxEventWhenEmailAlreadyExistsThroughHttp() throws Exception {
 		createUserUseCase.execute(new CreateUserCommand(NAME, EMAIL, PASSWORD, Set.of(UserRole.STUDENT)));
-		reset(eventPublisher);
 
 		mockMvc.perform(post("/users")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -121,20 +123,20 @@ class CreateUserIntegrationTest {
 				.andExpect(jsonPath("$.message").value("Email already exists."))
 				.andExpect(jsonPath("$.details").isArray());
 
-		verifyNoInteractions(eventPublisher);
 		assertEquals(1, userJpaRepository.count());
+		assertEquals(1, outboxEventCount());
 	}
 
 	@Test
-	void shouldRejectInvalidHttpRequestWithoutPersistingUserOrPublishingEvent() throws Exception {
+	void shouldRejectInvalidHttpRequestWithoutPersistingUserOrRecordingOutboxEvent() throws Exception {
 		mockMvc.perform(post("/users")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(validRequest("")))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value("USER_EMAIL_REQUIRED"));
 
-		verifyNoInteractions(eventPublisher);
 		assertEquals(0, userJpaRepository.count());
+		assertEquals(0, outboxEventCount());
 	}
 
 	private UserJpaEntity findUserByEmail(String email) {
@@ -142,6 +144,22 @@ class CreateUserIntegrationTest {
 				.filter(user -> email.equals(user.getEmail()))
 				.findFirst()
 				.orElseThrow();
+	}
+
+	private Map<String, Object> findSingleOutboxEvent() {
+		return jdbcTemplate.queryForMap("""
+				select event_id,
+				       event_type,
+				       payload::text as payload,
+				       status,
+				       attempts
+				from outbox_events
+				""");
+	}
+
+	private int outboxEventCount() {
+		Integer count = jdbcTemplate.queryForObject("select count(*) from outbox_events", Integer.class);
+		return count == null ? 0 : count;
 	}
 
 	private String validRequest(String email) {
