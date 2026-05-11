@@ -17,6 +17,49 @@ A professional Java microservices learning project built with AI-assisted softwa
 - course-service
 - notification-service
 
+## auth-user-service
+
+The `auth-user-service` is responsible for user creation in the Auth/User bounded context.
+
+Current implemented scope:
+
+- `POST /users`
+- user persistence in the `auth_user_db` PostgreSQL database
+- email uniqueness validation in the application and database
+- password hashing with BCrypt
+- public response without password or password hash
+- `UserCreated` event publication through RabbitMQ
+
+Out of scope for the current implementation:
+
+- login
+- JWT
+- refresh tokens
+- logout
+- password recovery or change
+- user blocking or unblocking
+- user update, deletion, or listing
+
+Run the service locally:
+
+```bash
+./gradlew :auth-user-service:bootRun
+```
+
+Run the service tests:
+
+```bash
+./gradlew :auth-user-service:test
+```
+
+Build the service:
+
+```bash
+./gradlew :auth-user-service:build
+```
+
+See the service-specific documentation in [auth-user-service/README.md](auth-user-service/README.md).
+
 ## Technical Baseline
 
 - Java 25
