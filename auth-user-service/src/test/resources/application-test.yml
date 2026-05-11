@@ -13,3 +13,8 @@ spring:
 
 server:
   port: 0
+
+auth-user-service:
+  outbox:
+    publisher:
+      enabled: false

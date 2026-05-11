@@ -29,3 +29,10 @@ auth-user-service:
     rabbitmq:
       exchange: ead.domain.events
       user-created-routing-key: auth-user.user-created
+  outbox:
+    publisher:
+      enabled: true
+      fixed-delay: 5000
+      batch-size: 20
+      max-attempts: 5
+      retry-delay: PT30S

@@ -39,4 +39,5 @@ Este arquivo registra um mini resumo técnico dos commits do projeto. A intenç�
 | `1dfd213` | `docs: document auth user service` | Documenta execução e validação do auth-user-service. |
 | `3e0f518` | `docs: record transactional outbox strategy` | Registra a decisão de usar Transactional Outbox Pattern. |
 | `05cc174` | `feat: add outbox events migration` | Cria a tabela `outbox_events` e valida sua migration. |
-| `current` | `feat: record user created events in outbox` | Troca a publicação direta no use case por gravação transacional na outbox. |
+| `f0f7ce5` | `feat: record user created events in outbox` | Troca a publicação direta no use case por gravação transacional na outbox. |
+| `current` | `feat: publish pending outbox events` | Adiciona relay assíncrono para publicar eventos pendentes da outbox no RabbitMQ com controle de status e tentativas. |
