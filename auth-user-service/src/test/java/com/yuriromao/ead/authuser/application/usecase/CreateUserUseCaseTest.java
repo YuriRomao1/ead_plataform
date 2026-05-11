@@ -14,6 +14,8 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 import com.yuriromao.ead.authuser.application.exception.UserEmailAlreadyExistsException;
+import com.yuriromao.ead.authuser.application.event.UserCreatedEvent;
+import com.yuriromao.ead.authuser.application.port.EventPublisher;
 import com.yuriromao.ead.authuser.application.port.PasswordHasher;
 import com.yuriromao.ead.authuser.application.port.UserRepository;
 import com.yuriromao.ead.authuser.domain.model.User;
@@ -29,7 +31,8 @@ class CreateUserUseCaseTest {
 
 	private final FakeUserRepository userRepository = new FakeUserRepository();
 	private final FakePasswordHasher passwordHasher = new FakePasswordHasher(PASSWORD_HASH);
-	private final CreateUserUseCase createUserUseCase = new CreateUserUseCase(userRepository, passwordHasher);
+	private final FakeEventPublisher eventPublisher = new FakeEventPublisher(userRepository);
+	private final CreateUserUseCase createUserUseCase = new CreateUserUseCase(userRepository, passwordHasher, eventPublisher);
 
 	@Test
 	void shouldCreateValidUser() {
@@ -52,7 +55,8 @@ class CreateUserUseCaseTest {
 		assertAll(
 				() -> assertEquals(1, userRepository.existsByEmailCalls),
 				() -> assertEquals(0, passwordHasher.hashCalls),
-				() -> assertFalse(userRepository.saved));
+				() -> assertFalse(userRepository.saved),
+				() -> assertFalse(eventPublisher.published));
 	}
 
 	@Test
@@ -85,6 +89,35 @@ class CreateUserUseCaseTest {
 				.anyMatch(name -> name.contains("password") || name.contains("hash"));
 
 		assertFalse(exposesSensitivePasswordData);
+	}
+
+	@Test
+	void shouldPublishUserCreatedEventAfterSavingUser() {
+		createUserUseCase.execute(validCommand());
+
+		assertAll(
+				() -> assertTrue(eventPublisher.published),
+				() -> assertTrue(eventPublisher.publishedAfterSave),
+				() -> assertNotNull(eventPublisher.publishedEvent.eventId()),
+				() -> assertEquals("UserCreated", eventPublisher.publishedEvent.eventType()));
+	}
+
+	@Test
+	void shouldPublishEventWithCreatedUserPayload() {
+		createUserUseCase.execute(validCommand());
+
+		assertAll(
+				() -> assertEquals(userRepository.savedUser.getId(), eventPublisher.publishedEvent.payload().userId()),
+				() -> assertEquals(NAME, eventPublisher.publishedEvent.payload().name()),
+				() -> assertEquals(EMAIL, eventPublisher.publishedEvent.payload().email()));
+	}
+
+	@Test
+	void shouldNotPublishEventWhenValidationFails() {
+		CreateUserCommand command = new CreateUserCommand(NAME, "invalid-email", PASSWORD, Set.of(UserRole.STUDENT));
+
+		assertThrows(IllegalArgumentException.class, () -> createUserUseCase.execute(command));
+		assertFalse(eventPublisher.published);
 	}
 
 	@Test
@@ -140,6 +173,25 @@ class CreateUserUseCaseTest {
 		@Override
 		public boolean matches(String rawPassword, String passwordHash) {
 			return this.passwordHash.equals(passwordHash) && PASSWORD.equals(rawPassword);
+		}
+	}
+
+	private static final class FakeEventPublisher implements EventPublisher {
+
+		private final FakeUserRepository userRepository;
+		private boolean published;
+		private boolean publishedAfterSave;
+		private UserCreatedEvent publishedEvent;
+
+		private FakeEventPublisher(FakeUserRepository userRepository) {
+			this.userRepository = userRepository;
+		}
+
+		@Override
+		public void publish(UserCreatedEvent event) {
+			this.published = true;
+			this.publishedAfterSave = userRepository.saved;
+			this.publishedEvent = event;
 		}
 	}
 }
