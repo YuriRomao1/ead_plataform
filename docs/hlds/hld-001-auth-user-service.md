@@ -231,12 +231,12 @@ O ADR-006 define outbox transacional para eventos de domínio do `auth-user-serv
 - `ADR-001: Microservices with Database per Service`
 - `ADR-002: Password Hashing Strategy`
 - `ADR-006: Transactional Outbox for Domain Events`
+- `ADR-007: RabbitMQ Topology and Retry/DLQ Strategy`
 
 ### ADRs pendentes
 
 - Estratégia de autenticação e formato de token.
 - Estratégia de validação de token entre serviços.
-- Topologia RabbitMQ para eventos de usuário.
 - Estratégia de migração de banco por serviço.
 - Versionamento de APIs REST.
 
@@ -255,5 +255,5 @@ O FDD-001 define a primeira entrega funcional: criação de usuário, validaçõ
 - Definir migrações do banco `auth_user_db`.
 - Configurar publicação assíncrona de `UserCreated` a partir da outbox.
 - Definir cenários Cucumber para criação de usuário, registro na outbox e publicação de evento.
-- Criar ADR para topologia RabbitMQ quando a convenção for definida.
+- Implementar a topologia RabbitMQ definida no ADR-007 nos consumidores.
 - Criar FDD/ADR para login e tokens antes de implementar autenticação.

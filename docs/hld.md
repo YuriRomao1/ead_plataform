@@ -308,11 +308,13 @@ Comandos atuais para o módulo existente:
   - Define outbox transacional para eventos de domínio do `auth-user-service`.
   - Reduz perda de `UserCreated` após persistência local.
 
+- `ADR-007: RabbitMQ Topology and Retry/DLQ Strategy`
+  - Define exchange principal, retry exchange, DLX, routing keys e filas de consumidores.
+  - Separa retry de publicação no produtor e retry de processamento no consumidor.
+
 ### Decisões que precisam virar ADR
 
 - Estratégia de migração de banco por serviço.
-- Topologia RabbitMQ: exchanges, filas e routing keys.
-- Estratégia de retry, dead-letter queue e idempotência.
 - Versionamento de APIs REST.
 - Versionamento de eventos.
 - Estratégia de autenticação e formato de token.

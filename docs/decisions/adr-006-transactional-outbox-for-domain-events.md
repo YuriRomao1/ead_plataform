@@ -85,7 +85,7 @@ Direção técnica esperada:
 - garantir que o publisher registre logs com `eventId`, `eventType`, status e tentativa;
 - atualizar testes unitários, de persistência, integração e mensageria.
 
-Esta decisão não define ainda a topologia definitiva de exchanges, queues, routing keys, retry queues ou dead-letter queues. Esses detalhes devem ser registrados em ADR própria quando forem estabilizados.
+Esta decisão não define a topologia de exchanges, queues, routing keys, retry queues ou dead-letter queues. Esses detalhes são definidos pelo ADR-007.
 
 ## Validation
 
@@ -100,7 +100,7 @@ Testes esperados para a implementação futura:
 - teste garantindo atualização de status após publicação bem-sucedida;
 - teste garantindo incremento de tentativas e registro de erro quando a publicação falhar;
 - teste garantindo que payload publicado não contém senha nem hash;
-- teste de idempotência ou segurança contra publicação duplicada por `eventId`, quando a estratégia for definida.
+- teste de idempotência ou segurança contra publicação duplicada por `eventId`, conforme ADR-007.
 
 Comandos Gradle esperados:
 

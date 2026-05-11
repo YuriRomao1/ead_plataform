@@ -130,6 +130,7 @@ Diretrizes:
 - cada evento deve carregar `eventId`;
 - falhas devem ser observáveis;
 - retry e DLQ devem ser definidos antes de uso crítico.
+- a topologia inicial de RabbitMQ, retry e DLQ é definida no ADR-007.
 
 ## 11. Fluxos principais
 
@@ -204,7 +205,7 @@ A comunicação orientada a eventos deve ser validada com:
 - testes de integração com Cucumber para o fluxo `UserCreated` entre produtor, broker e consumidor;
 - testes de integração com Cucumber para o fluxo `EnrollmentCreated` entre produtor, broker e consumidor;
 - testes de integração com Cucumber para entrega duplicada e idempotência;
-- testes de integração com Cucumber para falha de consumo, retry e DLQ quando a estratégia for definida.
+- testes de integração com Cucumber para falha de consumo, retry e DLQ conforme ADR-007.
 
 Cenários Cucumber devem cobrir contratos e comportamento entre componentes, não detalhes de RabbitMQ ou implementação de adapters.
 
@@ -236,12 +237,10 @@ Considerações:
 - `ADR-001: Microservices with Database per Service`
 - `ADR-002: Password Hashing Strategy`, relacionado indiretamente à restrição de dados sensíveis em `UserCreated`.
 - `ADR-006: Transactional Outbox for Domain Events`, define outbox para eventos do `auth-user-service`.
+- `ADR-007: RabbitMQ Topology and Retry/DLQ Strategy`, define exchanges, routing keys, retry, DLQ e idempotência esperada.
 
 ### ADRs pendentes
 
-- Topologia RabbitMQ: exchanges, filas e routing keys.
-- Estratégia de retry e dead-letter queue.
-- Estratégia de idempotência para consumers.
 - Versionamento de eventos.
 - Observabilidade de mensageria.
 
@@ -256,9 +255,7 @@ FDDs futuros devem detalhar `EnrollmentCreated`, consumers do `notification-serv
 
 ## 18. Próximos passos técnicos
 
-- Criar ADR para topologia RabbitMQ.
-- Criar ADR para retry, DLQ e idempotência.
-- Criar ADR para publicação confiável de eventos.
+- Implementar a topologia RabbitMQ definida no ADR-007.
 - Definir contrato versionado de `UserCreated`.
 - Definir contrato versionado de `EnrollmentCreated`.
 - Definir cenários Cucumber para fluxos assíncronos entre produtores, RabbitMQ e consumidores.

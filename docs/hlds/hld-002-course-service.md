@@ -127,6 +127,8 @@ Eventos publicados:
 
 - `EnrollmentCreated`, após criação bem-sucedida de matrícula.
 
+A routing key inicial para `EnrollmentCreated` deve seguir o ADR-007: `course.enrollment-created`.
+
 Eventos consumidos:
 
 - nenhum evento definido para consumo na fase inicial.
@@ -235,12 +237,12 @@ Considerações:
 ### ADRs existentes
 
 - `ADR-001: Microservices with Database per Service`
+- `ADR-007: RabbitMQ Topology and Retry/DLQ Strategy`
 
 ### ADRs pendentes
 
 - Estratégia de autenticação e autorização entre serviços.
 - Estratégia de API Gateway ou exposição direta.
-- Topologia RabbitMQ para `EnrollmentCreated`.
 - Publicação confiável de eventos.
 - Estratégia de migração de banco por serviço.
 - Versionamento de APIs REST.

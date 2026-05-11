@@ -84,7 +84,7 @@ Entidades principais:
 
 - `Notification`: representa uma notificação gerada ou pendente.
 - `NotificationStatus`: status de processamento/envio. Valores finais ainda precisam ser definidos em FDD.
-- `ProcessedEvent`: hipótese para idempotência, caso seja escolhida estratégia de registro de eventos processados.
+- `ProcessedEvent`: registro local de `eventId` processado para idempotência, conforme ADR-007.
 
 Dados de outros contextos:
 
@@ -122,7 +122,7 @@ Diretrizes:
 
 - consumers devem ser idempotentes;
 - falhas devem permitir retry;
-- mensagens com falha persistente devem ser encaminhadas para DLQ quando a estratégia for definida;
+- mensagens com falha persistente devem ser encaminhadas para DLQ conforme ADR-007;
 - eventos devem ser processados como fatos já ocorridos.
 
 ## 11. Fluxos principais
@@ -171,7 +171,7 @@ O serviço deve registrar:
 - início e fim do processamento;
 - falhas de validação de payload;
 - falhas de persistência;
-- retries e envio para DLQ quando a estratégia existir;
+- retries e envio para DLQ conforme ADR-007;
 - notificações registradas.
 
 Métricas esperadas:
@@ -194,11 +194,11 @@ O `notification-service` deve ser validado com:
 
 - testes unitários para regras de criação e status de notificação;
 - testes unitários para processamento de payloads de eventos;
-- testes unitários para idempotência quando a estratégia for definida;
+- testes unitários para idempotência por `eventId`;
 - testes de integração com Cucumber para consumo de `UserCreated` e registro de notificação de boas-vindas;
 - testes de integração com Cucumber para consumo de `EnrollmentCreated` e registro de notificação de matrícula;
 - testes de integração com Cucumber para mensagens duplicadas;
-- testes de integração com Cucumber para falhas de payload e comportamento de retry/DLQ quando definido.
+- testes de integração com Cucumber para falhas de payload e comportamento de retry/DLQ.
 
 Cenários Cucumber devem validar o comportamento do consumidor a partir de eventos de entrada e estado persistido esperado, sem acoplar a testes de classes internas.
 
@@ -226,12 +226,10 @@ Considerações:
 ### ADRs existentes
 
 - `ADR-001: Microservices with Database per Service`
+- `ADR-007: RabbitMQ Topology and Retry/DLQ Strategy`
 
 ### ADRs pendentes
 
-- Estratégia de retry e dead-letter queue.
-- Estratégia de idempotência de consumidores.
-- Topologia RabbitMQ.
 - Versionamento de eventos.
 - Estratégia de observabilidade para consumidores.
 - Estratégia de migração de banco por serviço.
@@ -252,7 +250,6 @@ FDDs futuros devem cobrir, no mínimo:
 
 - Criar FDD para consumo de `UserCreated`.
 - Criar FDD para consumo de `EnrollmentCreated`.
-- Definir ADR de retry, DLQ e idempotência.
 - Definir cenários Cucumber para consumo, idempotência e falhas de eventos.
 - Criar plano de implementação antes de código.
 - Definir status mínimos de `Notification`.
