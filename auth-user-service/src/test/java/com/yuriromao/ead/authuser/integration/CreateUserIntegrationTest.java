@@ -80,10 +80,16 @@ class CreateUserIntegrationTest {
 		assertAll(
 				() -> assertNotEquals(PASSWORD, persistedUser.getPasswordHash()),
 				() -> assertTrue(persistedUser.getPasswordHash().startsWith("$2")),
+				() -> assertNotNull(outboxEvent.get("id")),
+				() -> assertEquals("User", outboxEvent.get("aggregate_type")),
+				() -> assertEquals(persistedUser.getId(), outboxEvent.get("aggregate_id")),
 				() -> assertNotNull(outboxEvent.get("event_id")),
 				() -> assertEquals(UserCreatedEvent.EVENT_TYPE, outboxEvent.get("event_type")),
 				() -> assertEquals("PENDING", outboxEvent.get("status")),
 				() -> assertEquals(0, outboxEvent.get("attempts")),
+				() -> assertTrue(payload.contains(outboxEvent.get("event_id").toString())),
+				() -> assertTrue(payload.contains(UserCreatedEvent.EVENT_TYPE)),
+				() -> assertTrue(payload.contains("occurredAt")),
 				() -> assertTrue(payload.contains(persistedUser.getId().toString())),
 				() -> assertTrue(payload.contains(NAME)),
 				() -> assertTrue(payload.contains(EMAIL)),
@@ -148,7 +154,10 @@ class CreateUserIntegrationTest {
 
 	private Map<String, Object> findSingleOutboxEvent() {
 		return jdbcTemplate.queryForMap("""
-				select event_id,
+				select id,
+				       aggregate_type,
+				       aggregate_id,
+				       event_id,
 				       event_type,
 				       payload::text as payload,
 				       status,

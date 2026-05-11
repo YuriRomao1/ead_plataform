@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -63,6 +64,28 @@ class RabbitMqEventPublisherTest {
 		ArgumentCaptor<UserCreatedEvent> eventCaptor = ArgumentCaptor.forClass(UserCreatedEvent.class);
 		verify(rabbitTemplate).convertAndSend(eq(EXCHANGE_NAME), eq(USER_CREATED_ROUTING_KEY), eventCaptor.capture());
 		assertEquals(event, eventCaptor.getValue());
+	}
+
+	@Test
+	void shouldRejectInvalidPublisherArguments() {
+		RabbitTemplate rabbitTemplate = mock(RabbitTemplate.class);
+		RabbitMqEventPublisher eventPublisher = new RabbitMqEventPublisher(
+				rabbitTemplate,
+				EXCHANGE_NAME,
+				USER_CREATED_ROUTING_KEY);
+
+		assertAll(
+				() -> assertThrows(NullPointerException.class,
+						() -> new RabbitMqEventPublisher(null, EXCHANGE_NAME, USER_CREATED_ROUTING_KEY)),
+				() -> assertThrows(IllegalArgumentException.class,
+						() -> new RabbitMqEventPublisher(rabbitTemplate, null, USER_CREATED_ROUTING_KEY)),
+				() -> assertThrows(IllegalArgumentException.class,
+						() -> new RabbitMqEventPublisher(rabbitTemplate, " ", USER_CREATED_ROUTING_KEY)),
+				() -> assertThrows(IllegalArgumentException.class,
+						() -> new RabbitMqEventPublisher(rabbitTemplate, EXCHANGE_NAME, null)),
+				() -> assertThrows(IllegalArgumentException.class,
+						() -> new RabbitMqEventPublisher(rabbitTemplate, EXCHANGE_NAME, "")),
+				() -> assertThrows(NullPointerException.class, () -> eventPublisher.publish(null)));
 	}
 
 	@Test

@@ -12,7 +12,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.yuriromao.ead.authuser.application.event.UserCreatedEvent;
-import com.yuriromao.ead.authuser.application.event.UserCreatedPayload;
 import com.yuriromao.ead.authuser.application.port.EventPublisher;
 import com.yuriromao.ead.authuser.infrastructure.persistence.OutboxEvent;
 import com.yuriromao.ead.authuser.infrastructure.persistence.OutboxEventRepository;
@@ -86,12 +85,12 @@ public class OutboxEventRelay {
 		}
 
 		try {
-			UserCreatedPayload payload = jsonMapper.readValue(outboxEvent.payload(), UserCreatedPayload.class);
-			return new UserCreatedEvent(
-					outboxEvent.eventId(),
-					outboxEvent.eventType(),
-					outboxEvent.occurredAt(),
-					payload);
+			UserCreatedEvent event = jsonMapper.readValue(outboxEvent.payload(), UserCreatedEvent.class);
+			if (!outboxEvent.eventId().equals(event.eventId())) {
+				throw new IllegalStateException("Outbox event id does not match payload event id");
+			}
+
+			return event;
 		}
 		catch (Exception exception) {
 			throw new IllegalStateException("Failed to deserialize outbox event payload", exception);
@@ -102,7 +101,8 @@ public class OutboxEventRelay {
 		int nextAttempt = outboxEvent.attempts() + 1;
 		boolean attemptsExhausted = nextAttempt >= maxAttempts;
 		OutboxEventStatus status = attemptsExhausted ? OutboxEventStatus.FAILED : OutboxEventStatus.PENDING;
-		Instant nextAttemptAt = attemptsExhausted ? null : Instant.now().plus(retryDelay);
+		Instant failedAt = Instant.now();
+		Instant nextAttemptAt = attemptsExhausted ? failedAt : failedAt.plus(retryDelay);
 
 		outboxEventRepository.markFailed(
 				outboxEvent.eventId(),

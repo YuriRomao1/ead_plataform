@@ -45,9 +45,11 @@ class OutboxMigrationTest {
 						row -> (String) row.get("data_type")));
 
 		assertAll(
+				() -> assertTrue(columns.entrySet().contains(Map.entry("id", "uuid"))),
+				() -> assertTrue(columns.entrySet().contains(Map.entry("aggregate_type", "character varying"))),
+				() -> assertTrue(columns.entrySet().contains(Map.entry("aggregate_id", "uuid"))),
 				() -> assertTrue(columns.entrySet().contains(Map.entry("event_id", "uuid"))),
 				() -> assertTrue(columns.entrySet().contains(Map.entry("event_type", "character varying"))),
-				() -> assertTrue(columns.entrySet().contains(Map.entry("occurred_at", "timestamp without time zone"))),
 				() -> assertTrue(columns.entrySet().contains(Map.entry("payload", "jsonb"))),
 				() -> assertTrue(columns.entrySet().contains(Map.entry("status", "character varying"))),
 				() -> assertTrue(columns.entrySet().contains(Map.entry("attempts", "integer"))),
@@ -76,9 +78,10 @@ class OutboxMigrationTest {
 
 		assertAll(
 				() -> assertTrue(constraintNames.contains("outbox_events_pkey")),
+				() -> assertTrue(constraintNames.contains("uk_outbox_events_event_id")),
 				() -> assertTrue(constraintNames.contains("ck_outbox_events_status")),
-				() -> assertTrue(constraintNames.contains("ck_outbox_events_attempts")),
+				() -> assertTrue(constraintNames.contains("ck_outbox_events_attempts_non_negative")),
 				() -> assertTrue(indexNames.contains("idx_outbox_events_status_next_attempt_at")),
-				() -> assertTrue(indexNames.contains("idx_outbox_events_event_type")));
+				() -> assertTrue(indexNames.contains("idx_outbox_events_aggregate_type_aggregate_id")));
 	}
 }

@@ -194,7 +194,7 @@ Eventos representam fatos que já aconteceram. Comandos representam intenção d
 
 Eventos iniciais:
 
-- `UserCreated`, publicado pelo `auth-user-service`;
+- `UserCreated`, registrado em outbox pelo `auth-user-service` e publicado por relay assíncrono;
 - `EnrollmentCreated`, publicado pelo `course-service`.
 
 Consumidor inicial planejado:
@@ -206,6 +206,7 @@ Diretrizes:
 - cada evento deve possuir identificador único;
 - cada evento deve possuir tipo e data/hora de ocorrência;
 - eventos não devem carregar dados sensíveis como senha ou hash;
+- produtores que adotam outbox devem persistir metadados e envelope sanitizado do evento no próprio banco antes da publicação no broker;
 - consumidores devem ser idempotentes;
 - falhas de consumo devem permitir retentativa;
 - evolução de payloads deve preservar compatibilidade sempre que possível;
@@ -266,6 +267,7 @@ Itens mínimos esperados:
 - identificador de correlação em requisições HTTP;
 - `eventId` ou identificador de correlação no processamento de eventos;
 - logs para publicação e consumo de eventos;
+- logs para registro e atualização de outbox quando o serviço produtor usar esse padrão;
 - métricas básicas de disponibilidade, latência e erros;
 - métricas ou logs de filas, consumo e falhas de processamento no RabbitMQ.
 
@@ -302,12 +304,15 @@ Comandos atuais para o módulo existente:
   - Define BCrypt como estratégia inicial de hash de senha.
   - Rejeita senha em texto puro.
 
+- `ADR-006: Transactional Outbox for Domain Events`
+  - Define outbox transacional para eventos de domínio do `auth-user-service`.
+  - Reduz perda de `UserCreated` após persistência local.
+
 ### Decisões que precisam virar ADR
 
 - Estratégia de migração de banco por serviço.
 - Topologia RabbitMQ: exchanges, filas e routing keys.
 - Estratégia de retry, dead-letter queue e idempotência.
-- Estratégia de publicação confiável de eventos, como outbox.
 - Versionamento de APIs REST.
 - Versionamento de eventos.
 - Estratégia de autenticação e formato de token.
@@ -319,7 +324,7 @@ Comandos atuais para o módulo existente:
 
 Riscos atuais:
 
-- falha ao publicar eventos após persistência local pode gerar inconsistência entre serviços;
+- falha ao publicar eventos após persistência local pode gerar inconsistência entre serviços quando o produtor ainda não usa outbox;
 - consumidores não idempotentes podem processar eventos duplicados;
 - ausência de retry e dead-letter queue pode dificultar recuperação de falhas;
 - dependência excessiva de chamadas REST do `course-service` para o `auth-user-service` pode gerar acoplamento operacional;

@@ -12,7 +12,7 @@ Este documento parte de:
 
 A primeira entrega técnica do serviço deve implementar o cadastro de usuários, respeitando a decisão de microsserviços com database per service. O serviço terá seu próprio banco PostgreSQL e nenhum outro microsserviço poderá acessar diretamente suas tabelas, conexões, views ou procedures.
 
-Essa entrega também inicia a comunicação assíncrona da plataforma com a publicação do evento `UserCreated` via RabbitMQ após a criação bem-sucedida de um usuário.
+Essa entrega também inicia a comunicação assíncrona da plataforma com o registro transacional do evento `UserCreated` na outbox e sua publicação posterior via RabbitMQ.
 
 ## 2. Objetivos técnicos
 
@@ -23,7 +23,8 @@ Essa entrega também inicia a comunicação assíncrona da plataforma com a publ
 - Representar papéis com os valores `STUDENT`, `TEACHER` e `ADMIN`.
 - Representar status de usuário com os valores `ACTIVE` e `BLOCKED`.
 - Criar usuários inicialmente com status `ACTIVE`.
-- Publicar o evento `UserCreated` após a criação do usuário.
+- Registrar o evento `UserCreated` na outbox após a criação do usuário.
+- Publicar eventos pendentes da outbox no RabbitMQ por relay assíncrono.
 - Expor um contrato HTTP simples para criação de usuário.
 - Preparar base testável para evolução futura de autenticação e autorização.
 
@@ -44,9 +45,10 @@ Essa entrega também inicia a comunicação assíncrona da plataforma com a publ
 - Uso dos papéis `STUDENT`, `TEACHER` e `ADMIN`.
 - Uso dos status `ACTIVE` e `BLOCKED`.
 - Status inicial `ACTIVE`.
-- Publicação do evento `UserCreated`.
+- Registro do evento `UserCreated` na outbox.
+- Publicação assíncrona de eventos pendentes.
 - Tratamento de erros esperados.
-- Observabilidade mínima para criação e publicação de evento.
+- Observabilidade mínima para criação, registro na outbox e publicação de evento.
 - Testes unitários, de persistência, mensageria e contrato HTTP.
 
 ### Fora de escopo
@@ -77,8 +79,9 @@ Essa entrega também inicia a comunicação assíncrona da plataforma com a publ
 6. Senha em texto puro é transformada em hash por um componente dedicado.
 7. Usuário é persistido no banco próprio do `auth-user-service`.
 8. Evento `UserCreated` é montado com dados não sensíveis.
-9. Evento `UserCreated` é publicado no RabbitMQ.
+9. Evento `UserCreated` é registrado na `outbox_events` na mesma transação do usuário.
 10. API retorna `201 Created` com os dados públicos do usuário criado.
+11. Relay assíncrono publica eventos pendentes da outbox no RabbitMQ.
 
 Fluxo resumido:
 
@@ -94,8 +97,10 @@ sequenceDiagram
     Auth->>AuthDb: Check unique email
     Auth->>Auth: Hash password
     Auth->>AuthDb: Save user
-    Auth->>RabbitMQ: Publish UserCreated
     Auth-->>Client: 201 Created
+    Auth->>AuthDb: Read pending UserCreated from outbox
+    Auth->>RabbitMQ: Publish UserCreated
+    Auth->>AuthDb: Mark outbox event as published
 ```
 
 ## 5. Endpoint `POST /users`
@@ -108,7 +113,7 @@ Características:
 - Deve aceitar somente os campos necessários para criação.
 - Deve retornar apenas dados públicos do usuário.
 - Não deve retornar senha nem hash da senha.
-- Deve publicar `UserCreated` apenas quando a criação for concluída com sucesso.
+- Deve registrar `UserCreated` na outbox apenas quando a criação for concluída com sucesso.
 
 Status de sucesso:
 
@@ -195,7 +200,7 @@ Regras:
 
 ## 8. Evento `UserCreated`
 
-O evento `UserCreated` deve ser publicado após a criação bem-sucedida de um usuário.
+O evento `UserCreated` deve ser registrado na outbox após a criação bem-sucedida de um usuário. A publicação no RabbitMQ deve ocorrer posteriormente por relay assíncrono.
 
 Payload:
 
@@ -220,7 +225,9 @@ Regras:
 - `occurredAt` deve indicar quando o evento ocorreu.
 - `payload.userId` deve ser o identificador do usuário criado.
 - O evento não deve conter senha, hash de senha ou outros dados sensíveis.
-- O evento deve ser publicado somente após a persistência bem-sucedida.
+- O evento deve ser gravado na `outbox_events` na mesma transação que persiste o usuário.
+- O `payload` JSONB da outbox deve armazenar o envelope sanitizado do evento, incluindo `eventId`, `eventType`, `occurredAt` e o payload público.
+- A publicação no RabbitMQ deve considerar somente eventos `PENDING` com `next_attempt_at` vencido.
 
 Observação:
 
@@ -234,9 +241,11 @@ Logs esperados:
 - falha de validação;
 - tentativa de criação com e-mail duplicado;
 - usuário criado com sucesso;
-- tentativa de publicação do evento `UserCreated`;
+- tentativa de registro do evento `UserCreated` na outbox;
+- evento `UserCreated` registrado na outbox com sucesso;
+- tentativa de publicação assíncrona do evento `UserCreated`;
 - evento `UserCreated` publicado com sucesso;
-- falha inesperada na criação ou publicação.
+- falha inesperada na criação, registro ou publicação.
 
 Health checks esperados:
 
@@ -293,7 +302,8 @@ Não há dependência funcional de `course-service` ou `notification-service` pa
 - Usuários são criados com status `ACTIVE`.
 - Os papéis `STUDENT`, `TEACHER` e `ADMIN` são aceitos.
 - O status `BLOCKED` existe no modelo para uso futuro, mas não há fluxo de bloqueio nesta entrega.
-- `UserCreated` é publicado após criação bem-sucedida.
+- `UserCreated` é registrado na outbox após criação bem-sucedida.
+- Eventos pendentes da outbox podem ser publicados pelo relay assíncrono.
 - `UserCreated` não contém dados sensíveis.
 - O serviço não acessa banco de outro microsserviço.
 - Testes automatizados relevantes passam.
@@ -324,8 +334,11 @@ Não há dependência funcional de `course-service` ou `notification-service` pa
 
 ### Testes de mensageria
 
-- Deve publicar `UserCreated` após criação bem-sucedida.
-- Não deve publicar `UserCreated` quando a criação falhar.
+- Deve registrar `UserCreated` na outbox após criação bem-sucedida.
+- Não deve registrar `UserCreated` quando a criação falhar.
+- Deve publicar eventos pendentes da outbox no RabbitMQ.
+- Deve marcar eventos publicados com status `PUBLISHED`.
+- Deve registrar falhas de publicação com incremento de tentativas e próxima tentativa.
 - Evento publicado deve conter `eventId`, `eventType`, `occurredAt` e payload.
 - Evento publicado não deve conter senha nem hash.
 
@@ -341,7 +354,7 @@ Não há dependência funcional de `course-service` ou `notification-service` pa
 
 | Risco | Mitigação |
 | --- | --- |
-| Falha ao publicar `UserCreated` após persistir o usuário pode gerar inconsistência. | Registrar erro com contexto, cobrir em testes e avaliar padrão outbox em ADR futura. |
+| Falha ao publicar `UserCreated` após persistir o usuário pode gerar inconsistência. | Registrar `UserCreated` na outbox na mesma transação do usuário e publicar posteriormente por relay assíncrono. |
 | Cadastro público permitindo papel `ADMIN` pode ser inseguro em produção. | Aceitar nesta entrega de aprendizado, mas registrar como ponto para revisão antes de autenticação real. |
 | Política de senha insuficiente pode reduzir segurança. | Definir validação mínima agora e evoluir política em FDD específico quando autenticação entrar no escopo. |
 | Erros inconsistentes podem dificultar integração de clientes. | Padronizar formato de erro desde o primeiro endpoint e cobrir com testes de contrato. |

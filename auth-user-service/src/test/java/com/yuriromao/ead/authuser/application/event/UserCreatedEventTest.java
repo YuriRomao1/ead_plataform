@@ -70,7 +70,9 @@ class UserCreatedEventTest {
 	void shouldRejectMissingPayloadData() {
 		assertAll(
 				() -> assertThrows(NullPointerException.class, () -> new UserCreatedPayload(null, NAME, EMAIL)),
+				() -> assertThrows(IllegalArgumentException.class, () -> new UserCreatedPayload(USER_ID, null, EMAIL)),
 				() -> assertThrows(IllegalArgumentException.class, () -> new UserCreatedPayload(USER_ID, "", EMAIL)),
+				() -> assertThrows(IllegalArgumentException.class, () -> new UserCreatedPayload(USER_ID, NAME, null)),
 				() -> assertThrows(IllegalArgumentException.class, () -> new UserCreatedPayload(USER_ID, NAME, " ")));
 	}
 

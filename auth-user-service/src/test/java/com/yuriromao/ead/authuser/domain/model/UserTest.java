@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
@@ -103,6 +104,16 @@ class UserTest {
 	void shouldRejectEmptyRoles() {
 		assertThrows(IllegalArgumentException.class,
 				() -> User.createNew(VALID_NAME, VALID_EMAIL, VALID_PASSWORD_HASH, Set.of()));
+	}
+
+	@Test
+	void shouldRejectNullRole() {
+		Set<UserRole> roles = new HashSet<>();
+		roles.add(UserRole.STUDENT);
+		roles.add(null);
+
+		assertThrows(IllegalArgumentException.class,
+				() -> User.createNew(VALID_NAME, VALID_EMAIL, VALID_PASSWORD_HASH, roles));
 	}
 
 	@Test

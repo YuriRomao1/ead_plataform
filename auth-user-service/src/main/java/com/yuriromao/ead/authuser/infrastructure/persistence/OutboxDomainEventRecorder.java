@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Objects;
+import java.util.UUID;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -22,6 +23,8 @@ import tools.jackson.databind.json.JsonMapper;
 @Repository
 public class OutboxDomainEventRecorder implements DomainEventRecorder {
 
+	private static final String USER_AGGREGATE_TYPE = "User";
+
 	private final JdbcTemplate jdbcTemplate;
 	private final JsonMapper jsonMapper;
 
@@ -39,22 +42,26 @@ public class OutboxDomainEventRecorder implements DomainEventRecorder {
 
 		jdbcTemplate.update("""
 				insert into outbox_events (
-				    event_id,
+				    id,
+				    aggregate_type,
+				    aggregate_id,
 				    event_type,
-				    occurred_at,
+				    event_id,
 				    payload,
 				    status,
 				    attempts,
+				    next_attempt_at,
 				    created_at,
-				    updated_at,
-				    next_attempt_at
+				    updated_at
 				)
-				values (?, ?, ?, cast(? as jsonb), ?, ?, ?, ?, ?)
+				values (?, ?, ?, ?, ?, cast(? as jsonb), ?, ?, ?, ?, ?)
 				""",
-				event.eventId(),
+				UUID.randomUUID(),
+				USER_AGGREGATE_TYPE,
+				event.payload().userId(),
 				event.eventType(),
-				toDatabaseTimestamp(event.occurredAt()),
-				serializePayload(event),
+				event.eventId(),
+				serializeEvent(event),
 				OutboxEventStatus.PENDING.name(),
 				0,
 				createdAt,
@@ -62,12 +69,12 @@ public class OutboxDomainEventRecorder implements DomainEventRecorder {
 				createdAt);
 	}
 
-	private String serializePayload(UserCreatedEvent event) {
+	private String serializeEvent(UserCreatedEvent event) {
 		try {
-			return jsonMapper.writeValueAsString(event.payload());
+			return jsonMapper.writeValueAsString(event);
 		}
 		catch (Exception exception) {
-			throw new IllegalStateException("Failed to serialize domain event payload", exception);
+			throw new IllegalStateException("Failed to serialize domain event", exception);
 		}
 	}
 

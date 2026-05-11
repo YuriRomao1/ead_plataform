@@ -115,14 +115,16 @@ Exemplo:
 
 Fluxos iniciais:
 
-- `auth-user-service` publica `UserCreated`;
+- `auth-user-service` registra `UserCreated` na outbox e publica o evento por relay assíncrono;
 - `course-service` publica `EnrollmentCreated`;
 - `notification-service` consome `UserCreated`;
 - `notification-service` consome `EnrollmentCreated`.
 
 Diretrizes:
 
-- eventos devem ser publicados após persistência bem-sucedida do fato;
+- produtores devem registrar eventos em mecanismo confiável após persistência bem-sucedida do fato;
+- o `auth-user-service` usa outbox transacional para gravar `UserCreated` na mesma transação do usuário;
+- o relay da outbox publica apenas eventos com `status = PENDING` e `next_attempt_at` vencido;
 - eventos não devem conter senha, hash ou segredos;
 - consumers devem ser idempotentes;
 - cada evento deve carregar `eventId`;
@@ -141,8 +143,10 @@ sequenceDiagram
     participant Notification as notification-service
     participant NotificationDb as notification_db
 
-    Auth->>AuthDb: Save user
+    Auth->>AuthDb: Save user and UserCreated outbox event
+    Auth->>AuthDb: Read pending outbox event
     Auth->>Broker: Publish UserCreated
+    Auth->>AuthDb: Mark outbox event as published
     Broker-->>Notification: Deliver UserCreated
     Notification->>NotificationDb: Register welcome notification
 ```
@@ -179,6 +183,7 @@ Diretrizes:
 Observabilidade mínima:
 
 - logs de publicação com `eventId`, `eventType` e serviço produtor;
+- logs de registro e atualização de outbox com `eventId`, `eventType`, status e tentativa;
 - logs de consumo com `eventId`, `eventType` e serviço consumidor;
 - métricas de publicação e consumo;
 - métricas de falhas e retries;
@@ -194,6 +199,8 @@ A comunicação orientada a eventos deve ser validada com:
 - testes unitários para criação e validação do envelope de eventos;
 - testes unitários para serialização e desserialização de payloads;
 - testes unitários para regras que impedem dados sensíveis em eventos;
+- testes de migration e persistência para a outbox do produtor;
+- testes do relay assíncrono para publicação, retry e falha final;
 - testes de integração com Cucumber para o fluxo `UserCreated` entre produtor, broker e consumidor;
 - testes de integração com Cucumber para o fluxo `EnrollmentCreated` entre produtor, broker e consumidor;
 - testes de integração com Cucumber para entrega duplicada e idempotência;
@@ -210,13 +217,13 @@ Considerações:
 - consumers devem lidar com entrega duplicada;
 - retry sem limite pode causar loops;
 - DLQ deve isolar mensagens com falha persistente;
-- outbox deve ser avaliado para coordenar persistência local e publicação de evento.
+- outbox transacional é a estratégia aceita para coordenar persistência local e publicação de eventos do `auth-user-service`.
 
 ## 15. Riscos arquiteturais
 
 | Risco | Probabilidade | Impacto | Mitigação | Contingência |
 | --- | --- | --- | --- | --- |
-| Perda de evento após persistência local. | média | alto | Definir outbox ou publicação confiável em ADR. | Reprocessar eventos a partir de estado local. |
+| Perda de evento após persistência local. | média | alto | Usar outbox transacional no produtor quando definido em ADR. | Reprocessar eventos pendentes ou com falha a partir da outbox do serviço produtor. |
 | Processamento duplicado por consumers. | alta | médio | Idempotência por `eventId`. | Rotina de deduplicação. |
 | Mensagem inválida bloquear consumo. | média | alto | Validar payload e usar DLQ. | Quarentena e reprocessamento manual. |
 | Payload evoluir quebrando consumidores. | média | alto | Versionamento de eventos. | Manter compatibilidade ou criar novo tipo/versão. |
@@ -228,13 +235,13 @@ Considerações:
 
 - `ADR-001: Microservices with Database per Service`
 - `ADR-002: Password Hashing Strategy`, relacionado indiretamente à restrição de dados sensíveis em `UserCreated`.
+- `ADR-006: Transactional Outbox for Domain Events`, define outbox para eventos do `auth-user-service`.
 
 ### ADRs pendentes
 
 - Topologia RabbitMQ: exchanges, filas e routing keys.
 - Estratégia de retry e dead-letter queue.
 - Estratégia de idempotência para consumers.
-- Estratégia de publicação confiável de eventos.
 - Versionamento de eventos.
 - Observabilidade de mensageria.
 

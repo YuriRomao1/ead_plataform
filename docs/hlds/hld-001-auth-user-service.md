@@ -22,7 +22,7 @@ O componente resolve o problema arquitetural de centralizar identidade, credenci
 - Gestão técnica de usuários, credenciais, papéis e status.
 - Banco próprio `auth_user_db`.
 - Hash de senha com BCrypt.
-- Publicação futura de `UserCreated`.
+- Registro transacional de `UserCreated` na outbox e publicação assíncrona via RabbitMQ.
 - Contratos REST relacionados ao contexto Auth/User, conforme FDDs específicos.
 
 ### Fora de escopo
@@ -43,7 +43,8 @@ O `auth-user-service` deve:
 - manter papéis `STUDENT`, `TEACHER` e `ADMIN`;
 - manter status `ACTIVE` e `BLOCKED`;
 - garantir unicidade de e-mail dentro do próprio serviço;
-- publicar `UserCreated` após criação bem-sucedida de usuário;
+- registrar `UserCreated` na outbox após criação bem-sucedida de usuário;
+- publicar eventos pendentes da outbox no RabbitMQ por relay assíncrono;
 - expor APIs do contexto Auth/User;
 - prover dados de autorização para outros serviços por contrato REST futuro.
 
@@ -100,7 +101,7 @@ Dados sensíveis:
 | Interface | Tipo | Descrição | Status |
 | --- | --- | --- | --- |
 | `POST /users` | REST | Criação de usuário definida no FDD-001. | planned |
-| `UserCreated` | Event | Evento publicado após criação bem-sucedida de usuário. | planned |
+| `UserCreated` | Event | Evento registrado na outbox após criação bem-sucedida de usuário e publicado assincronamente. | planned |
 | User validation API | REST | Interface futura para validação de usuário e papéis por outros serviços. | draft |
 
 ## 9. Comunicação síncrona
@@ -121,11 +122,13 @@ Diretrizes:
 
 ## 10. Comunicação assíncrona
 
-O serviço deve publicar eventos relacionados a usuários.
+O serviço deve produzir eventos relacionados a usuários por meio da outbox transacional definida no ADR-006.
 
 Eventos planejados:
 
-- `UserCreated`, publicado após persistência bem-sucedida de usuário.
+- `UserCreated`, registrado na tabela `outbox_events` na mesma transação que persiste o usuário e publicado posteriormente no RabbitMQ por relay assíncrono.
+
+A tabela `outbox_events` pertence ao banco do `auth-user-service`. Ela guarda `id`, `aggregate_type`, `aggregate_id`, `event_type`, `event_id`, `payload` JSONB, `status`, `attempts`, `last_error`, `next_attempt_at`, `created_at`, `published_at` e `updated_at`. O `payload` JSONB armazena o envelope sanitizado do evento para preservar `occurredAt` sem expor senha ou hash.
 
 O serviço não deve consumir eventos nesta primeira fase.
 
@@ -145,9 +148,11 @@ sequenceDiagram
     Client->>Auth: POST /users
     Auth->>Auth: Validate input and business rules
     Auth->>Auth: Hash password with BCrypt
-    Auth->>Db: Save user
-    Auth->>Broker: Publish UserCreated
+    Auth->>Db: Save user and UserCreated outbox event
     Auth-->>Client: 201 Created
+    Auth->>Db: Read pending outbox event
+    Auth->>Broker: Publish UserCreated
+    Auth->>Db: Mark outbox event as published
 ```
 
 ## 12. Segurança
@@ -169,7 +174,8 @@ O serviço deve registrar:
 - falhas de validação;
 - conflito por e-mail duplicado;
 - sucesso na criação de usuário;
-- tentativa e resultado de publicação de `UserCreated`.
+- tentativa e resultado de registro de `UserCreated` na outbox;
+- tentativa e resultado de publicação assíncrona de eventos pendentes.
 
 Health checks esperados:
 
@@ -189,7 +195,9 @@ O `auth-user-service` deve ser validado com:
 - testes de contrato HTTP para APIs públicas;
 - testes de persistência quando `auth_user_db` for configurado;
 - testes de integração com Cucumber para fluxos de criação de usuário de ponta a ponta;
-- testes de integração com Cucumber cobrindo publicação de `UserCreated` após criação bem-sucedida;
+- testes de integração com Cucumber cobrindo registro de `UserCreated` na outbox após criação bem-sucedida;
+- testes de persistência para schema, constraints e índices de `outbox_events`;
+- testes do relay assíncrono para publicação de eventos pendentes;
 - testes negativos com Cucumber para nome, e-mail, senha e papéis inválidos.
 
 Cenários Cucumber devem descrever comportamento observável do serviço, não detalhes de classes ou implementação interna.
@@ -201,16 +209,17 @@ Considerações:
 - o serviço deve poder escalar horizontalmente quando não mantiver estado em memória;
 - unicidade de e-mail deve ser garantida também no banco;
 - hash BCrypt é CPU-intensive e pode limitar throughput;
-- publicação de evento após persistência pode gerar inconsistência se falhar;
+- publicação direta de evento após persistência pode gerar inconsistência se falhar;
+- outbox reduz perda de evento, mas exige retry e limpeza operacional;
 - timeouts devem ser definidos para integrações REST futuras.
 
-Ainda não há decisão sobre outbox, retry e DLQ.
+O ADR-006 define outbox transacional para eventos de domínio do `auth-user-service`. Estratégias definitivas de retry avançado, DLQ e limpeza de registros antigos ainda exigem decisão própria.
 
 ## 15. Riscos arquiteturais
 
 | Risco | Probabilidade | Impacto | Mitigação | Contingência |
 | --- | --- | --- | --- | --- |
-| Falha ao publicar `UserCreated` após salvar usuário. | média | alto | Definir estratégia de publicação confiável em ADR. | Reprocessar eventos a partir de mecanismo futuro de outbox ou rotina administrativa. |
+| Falha ao publicar `UserCreated` após salvar usuário. | média | alto | Registrar evento na outbox na mesma transação do usuário e publicar por relay assíncrono. | Reprocessar eventos pendentes ou com falha a partir da `outbox_events`. |
 | Cadastro público com papel `ADMIN`. | média | alto | Revisar regra antes de autenticação real. | Restringir criação de `ADMIN` a fluxo administrativo futuro. |
 | Vazamento de senha ou hash em logs/eventos. | baixa | alto | Revisão de código e testes de contrato. | Rotacionar credenciais e corrigir contrato imediatamente. |
 | BCrypt com work factor inadequado. | média | médio | Tornar configuração ajustável e testar performance. | Reduzir temporariamente o custo com justificativa operacional. |
@@ -221,12 +230,12 @@ Ainda não há decisão sobre outbox, retry e DLQ.
 
 - `ADR-001: Microservices with Database per Service`
 - `ADR-002: Password Hashing Strategy`
+- `ADR-006: Transactional Outbox for Domain Events`
 
 ### ADRs pendentes
 
 - Estratégia de autenticação e formato de token.
 - Estratégia de validação de token entre serviços.
-- Estratégia de publicação confiável de eventos.
 - Topologia RabbitMQ para eventos de usuário.
 - Estratégia de migração de banco por serviço.
 - Versionamento de APIs REST.
@@ -238,13 +247,13 @@ Documentos relacionados:
 - `docs/fdds/fdd-001-auth-user-service.md`
 - `docs/implementation-plans/plan-001-auth-user-service.md`
 
-O FDD-001 define a primeira entrega funcional: criação de usuário, validações, hash BCrypt, papéis, status e publicação de `UserCreated`.
+O FDD-001 define a primeira entrega funcional: criação de usuário, validações, hash BCrypt, papéis, status e registro/publicação assíncrona de `UserCreated`.
 
 ## 18. Próximos passos técnicos
 
 - Implementar criação de usuário conforme FDD-001 e plano associado.
 - Definir migrações do banco `auth_user_db`.
-- Configurar publicação de `UserCreated`.
-- Definir cenários Cucumber para criação de usuário e publicação de evento.
+- Configurar publicação assíncrona de `UserCreated` a partir da outbox.
+- Definir cenários Cucumber para criação de usuário, registro na outbox e publicação de evento.
 - Criar ADR para topologia RabbitMQ quando a convenção for definida.
 - Criar FDD/ADR para login e tokens antes de implementar autenticação.

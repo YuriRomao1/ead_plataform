@@ -177,6 +177,19 @@ class UserControllerTest {
 				.andExpect(jsonPath("$.message").value("Email already exists."));
 	}
 
+	@Test
+	void shouldReturnInternalErrorForUnexpectedFailures() throws Exception {
+		when(createUserUseCase.execute(any(CreateUserCommand.class)))
+				.thenThrow(new IllegalStateException("unexpected failure"));
+
+		mockMvc.perform(post("/users")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(validRequest()))
+				.andExpect(status().isInternalServerError())
+				.andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
+				.andExpect(jsonPath("$.message").value("Internal error."));
+	}
+
 	private String validRequest() {
 		return """
 				{

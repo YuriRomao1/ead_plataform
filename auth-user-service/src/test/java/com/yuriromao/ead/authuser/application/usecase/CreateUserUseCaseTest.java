@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
@@ -124,6 +125,34 @@ class CreateUserUseCaseTest {
 	void shouldRejectMissingPassword() {
 		assertThrows(IllegalArgumentException.class,
 				() -> new CreateUserCommand(NAME, EMAIL, " ", Set.of(UserRole.STUDENT)));
+	}
+
+	@Test
+	void shouldRejectInvalidCommandFields() {
+		Set<UserRole> rolesWithNull = new HashSet<>();
+		rolesWithNull.add(UserRole.STUDENT);
+		rolesWithNull.add(null);
+
+		assertAll(
+				() -> assertThrows(IllegalArgumentException.class,
+						() -> new CreateUserCommand(null, EMAIL, PASSWORD, Set.of(UserRole.STUDENT))),
+				() -> assertThrows(IllegalArgumentException.class,
+						() -> new CreateUserCommand(NAME, null, PASSWORD, Set.of(UserRole.STUDENT))),
+				() -> assertThrows(IllegalArgumentException.class,
+						() -> new CreateUserCommand(NAME, EMAIL, null, Set.of(UserRole.STUDENT))),
+				() -> assertThrows(IllegalArgumentException.class,
+						() -> new CreateUserCommand(NAME, EMAIL, PASSWORD, null)),
+				() -> assertThrows(IllegalArgumentException.class,
+						() -> new CreateUserCommand(NAME, EMAIL, PASSWORD, Set.of())),
+				() -> assertThrows(IllegalArgumentException.class,
+						() -> new CreateUserCommand(NAME, EMAIL, PASSWORD, rolesWithNull)));
+	}
+
+	@Test
+	void shouldExposeDuplicateEmailInException() {
+		UserEmailAlreadyExistsException exception = new UserEmailAlreadyExistsException(EMAIL);
+
+		assertEquals(EMAIL, exception.getEmail());
 	}
 
 	private CreateUserCommand validCommand() {

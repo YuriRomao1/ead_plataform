@@ -2,6 +2,7 @@ package com.yuriromao.ead.authuser.infrastructure.persistence;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -44,6 +45,8 @@ class JpaUserRepositoryTest {
 		assertEquals(user.getName(), persistedUser.getName());
 		assertEquals(user.getEmail(), persistedUser.getEmail());
 		assertEquals(user.getPasswordHash(), persistedUser.getPasswordHash());
+		assertNotNull(persistedUser.getCreatedAt());
+		assertNotNull(persistedUser.getUpdatedAt());
 	}
 
 	@Test

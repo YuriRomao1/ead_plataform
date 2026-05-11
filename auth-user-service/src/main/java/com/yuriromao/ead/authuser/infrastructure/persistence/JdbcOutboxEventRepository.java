@@ -33,15 +33,17 @@ public class JdbcOutboxEventRepository implements OutboxEventRepository {
 		Objects.requireNonNull(now, "now must not be null");
 
 		return jdbcTemplate.query("""
-				select event_id,
+				select id,
+				       aggregate_type,
+				       aggregate_id,
+				       event_id,
 				       event_type,
-				       occurred_at,
 				       payload::text as payload,
 				       attempts
 				from outbox_events
 				where status = ?
-				  and (next_attempt_at is null or next_attempt_at <= ?)
-				order by created_at, event_id
+				  and next_attempt_at <= ?
+				order by created_at, id
 				limit ?
 				""",
 				this::mapOutboxEvent,
@@ -63,10 +65,11 @@ public class JdbcOutboxEventRepository implements OutboxEventRepository {
 				    published_at = ?,
 				    updated_at = ?,
 				    last_error = null,
-				    next_attempt_at = null
+				    next_attempt_at = ?
 				where event_id = ?
 				""",
 				OutboxEventStatus.PUBLISHED.name(),
+				timestamp,
 				timestamp,
 				timestamp,
 				eventId);
@@ -76,6 +79,7 @@ public class JdbcOutboxEventRepository implements OutboxEventRepository {
 	public void markFailed(UUID eventId, OutboxEventStatus status, String lastError, Instant nextAttemptAt) {
 		Objects.requireNonNull(eventId, "eventId must not be null");
 		Objects.requireNonNull(status, "status must not be null");
+		Objects.requireNonNull(nextAttemptAt, "nextAttemptAt must not be null");
 
 		if (status == OutboxEventStatus.PUBLISHED) {
 			throw new IllegalArgumentException("status must not be PUBLISHED for failure");
@@ -95,15 +99,17 @@ public class JdbcOutboxEventRepository implements OutboxEventRepository {
 				status.name(),
 				lastError,
 				toDatabaseTimestamp(now),
-				nextAttemptAt == null ? null : toDatabaseTimestamp(nextAttemptAt),
+				toDatabaseTimestamp(nextAttemptAt),
 				eventId);
 	}
 
 	private OutboxEvent mapOutboxEvent(ResultSet resultSet, int rowNumber) throws SQLException {
 		return new OutboxEvent(
+				resultSet.getObject("id", UUID.class),
+				resultSet.getString("aggregate_type"),
+				resultSet.getObject("aggregate_id", UUID.class),
 				resultSet.getObject("event_id", UUID.class),
 				resultSet.getString("event_type"),
-				resultSet.getTimestamp("occurred_at").toInstant(),
 				resultSet.getString("payload"),
 				resultSet.getInt("attempts"));
 	}
