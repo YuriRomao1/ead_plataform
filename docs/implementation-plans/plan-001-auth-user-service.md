@@ -10,6 +10,8 @@ Documentos de referência:
 - `docs/fdds/fdd-001-auth-user-service.md`
 - `docs/decisions/adr-001-microservices-database-per-service.md`
 - `docs/decisions/adr-002-password-hashing-strategy.md`
+- `docs/decisions/adr-006-transactional-outbox-for-domain-events.md`
+- `docs/decisions/adr-007-rabbitmq-topology-and-retry-dlq-strategy.md`
 
 Escopo da entrega:
 
@@ -19,7 +21,8 @@ Escopo da entrega:
 - salvar senha somente como hash BCrypt;
 - usar papéis `STUDENT`, `TEACHER` e `ADMIN`;
 - usar status `ACTIVE` e `BLOCKED`;
-- publicar `UserCreated` após criação bem-sucedida.
+- registrar `UserCreated` na outbox após criação bem-sucedida;
+- publicar eventos pendentes da outbox no RabbitMQ por relay assíncrono.
 
 Fora de escopo:
 
@@ -41,6 +44,7 @@ Fora de escopo:
 - Controllers devem apenas receber requisições, validar entrada, chamar casos de uso e retornar respostas.
 - Regras de negócio devem ficar nas camadas de aplicação/domínio.
 - Cada tarefa deve ser pequena o suficiente para revisão e commit isolado.
+- O ADR-006 substitui a publicação direta do evento dentro da transação por registro transacional em outbox e publicação assíncrona posterior.
 
 ## Tasks
 
@@ -383,6 +387,182 @@ Fora de escopo:
 - **Mensagem de commit sugerida:**
   - `docs: document auth user service`
 
+## Ajuste do plano após ADR-006
+
+As tasks `T10`, `T11` e parte de `T12` foram planejadas antes da adoção formal do Transactional Outbox Pattern.
+
+Com a aceitação do ADR-006, a direção definitiva deixa de ser publicar `UserCreated` diretamente no fluxo transacional de criação de usuário. O fluxo final passa a ser:
+
+1. criar o usuário;
+2. registrar `UserCreated` na `outbox_events` na mesma transação;
+3. publicar eventos pendentes por relay assíncrono;
+4. atualizar status e tentativas de publicação na outbox.
+
+As tasks `T16` a `T19` abaixo formalizam essa fase e devem ser consideradas a referência para concluir o tópico de outbox no `auth-user-service`.
+
+### T16 - Add outbox event persistence
+
+- **ID:** T16
+- **Título:** Add outbox event persistence
+- **Objetivo:** Adicionar a persistência local dos eventos de domínio do `auth-user-service` por meio da tabela `outbox_events` e do adapter responsável por gravar a intenção de publicação dentro da transação do banco.
+- **Escopo:**
+  - criar a migration da tabela `outbox_events`;
+  - definir constraints e índices necessários para busca, rastreabilidade e deduplicação;
+  - criar a estrutura de persistência da outbox no `auth-user-service`;
+  - preparar a porta de aplicação para gravar eventos de domínio na transação local.
+- **Fora de escopo:**
+  - alterar o fluxo de criação de usuário para usar a outbox;
+  - publicar eventos no RabbitMQ;
+  - criar consumers, DLQ ou retry de consumidor;
+  - criar operação administrativa de reprocessamento.
+- **Arquivos esperados:**
+  - `auth-user-service/src/main/resources/db/migration/V2__create_outbox_events_table.sql`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/application/port/DomainEventRecorder.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/persistence/OutboxEvent.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/persistence/OutboxEventRepository.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/persistence/OutboxDomainEventRecorder.java`
+  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/infrastructure/persistence/OutboxMigrationTest.java`
+  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/infrastructure/persistence/OutboxDomainEventRecorderTest.java`
+- **Critérios de aceite:**
+  - a tabela `outbox_events` existe no banco do `auth-user-service`;
+  - a tabela possui `status` com valores `PENDING`, `PUBLISHED` e `FAILED`;
+  - a tabela possui `attempts` não negativo;
+  - a tabela possui unicidade de `event_id`;
+  - a tabela possui índice para busca por `(status, next_attempt_at)`;
+  - a tabela possui índice para rastreio por aggregate;
+  - existe uma porta de aplicação para registrar eventos na transação local;
+  - a implementação de persistência da outbox fica isolada na infraestrutura.
+- **Testes esperados:**
+  - teste de migration garantindo criação da tabela `outbox_events`;
+  - teste de constraints para `status`, `attempts` e `event_id`;
+  - teste de persistência garantindo gravação de evento com payload JSONB sanitizado;
+  - teste de persistência garantindo valores iniciais coerentes para status e tentativas.
+- **Comando de validação:**
+  - `./gradlew :auth-user-service:test`
+- **Mensagem de commit sugerida:**
+  - `feat: add outbox events persistence`
+
+### T17 - Record UserCreated event in outbox
+
+- **ID:** T17
+- **Título:** Record UserCreated event in outbox
+- **Objetivo:** Alterar o fluxo de criação de usuário para registrar `UserCreated` na outbox, em vez de publicar o evento diretamente no RabbitMQ dentro da transação do caso de uso.
+- **Escopo:**
+  - integrar `CreateUserUseCase` com `DomainEventRecorder`;
+  - registrar `UserCreated` na mesma transação que persiste o usuário;
+  - preservar o contrato HTTP e o comportamento funcional de criação de usuário;
+  - remover o acoplamento direto entre caso de uso transacional e publicação no broker.
+- **Fora de escopo:**
+  - criar o relay assíncrono da outbox;
+  - implementar política de retry do publisher;
+  - alterar exchange, routing key ou topologia do RabbitMQ;
+  - implementar consumo de `UserCreated`.
+- **Arquivos esperados:**
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/application/usecase/CreateUserUseCase.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/application/event/UserCreatedEventFactory.java`
+  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/application/usecase/CreateUserUseCaseTest.java`
+  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/integration/CreateUserTransactionTest.java`
+  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/integration/CreateUserIntegrationTest.java`
+- **Critérios de aceite:**
+  - `CreateUserUseCase` registra `UserCreated` na outbox após persistir usuário válido;
+  - o caso de uso não publica diretamente no RabbitMQ;
+  - usuário e evento de outbox são confirmados ou revertidos juntos na transação do banco;
+  - falha de validação não registra evento na outbox;
+  - e-mail duplicado não registra evento na outbox;
+  - o endpoint `POST /users` mantém semântica pública inalterada.
+- **Testes esperados:**
+  - teste de aplicação garantindo uso de `DomainEventRecorder`;
+  - teste garantindo que `CreateUserUseCase` não chama publisher RabbitMQ diretamente;
+  - teste transacional garantindo rollback conjunto de usuário e evento de outbox;
+  - teste de integração garantindo registro de `UserCreated` na outbox após criação bem-sucedida.
+- **Comando de validação:**
+  - `./gradlew :auth-user-service:test`
+- **Mensagem de commit sugerida:**
+  - `feat: record user created events in outbox`
+
+### T18 - Add outbox publisher to RabbitMQ
+
+- **ID:** T18
+- **Título:** Add outbox publisher to RabbitMQ
+- **Objetivo:** Criar o relay assíncrono que busca eventos pendentes na `outbox_events`, publica no RabbitMQ e atualiza o estado de publicação no banco do `auth-user-service`.
+- **Escopo:**
+  - buscar apenas eventos `PENDING` com `next_attempt_at` vencido;
+  - publicar o payload sanitizado do evento no RabbitMQ;
+  - marcar eventos publicados como `PUBLISHED`;
+  - registrar falhas, incrementar tentativas e reagendar `next_attempt_at`;
+  - marcar eventos como `FAILED` quando o limite de tentativas for atingido.
+- **Fora de escopo:**
+  - reprocessamento manual de eventos `FAILED`;
+  - consumer retry e DLQ do `notification-service`;
+  - limpeza de registros antigos da outbox;
+  - novos tipos de evento além de `UserCreated`.
+- **Arquivos esperados:**
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/messaging/OutboxEventRelay.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/messaging/RabbitMqEventPublisher.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/persistence/JdbcOutboxEventRepository.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/persistence/OutboxEventStatus.java`
+  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/infrastructure/messaging/OutboxEventRelayTest.java`
+  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/infrastructure/persistence/JdbcOutboxEventRepositoryTest.java`
+- **Critérios de aceite:**
+  - existe um publisher assíncrono separado do caso de uso transacional;
+  - apenas eventos `PENDING` elegíveis são buscados para publicação;
+  - publicação bem-sucedida atualiza o evento para `PUBLISHED`;
+  - falha de publicação incrementa tentativas e registra erro;
+  - falha final marca o evento como `FAILED`;
+  - logs de publicação incluem `eventId`, `eventType`, status e tentativa;
+  - `RabbitMqEventPublisher` é usado pelo relay, não diretamente pelo caso de uso.
+- **Testes esperados:**
+  - teste garantindo publicação de eventos pendentes;
+  - teste garantindo marcação como `PUBLISHED` após sucesso;
+  - teste garantindo retry com atualização de `attempts`, `last_error` e `next_attempt_at`;
+  - teste garantindo transição para `FAILED` ao atingir o limite de tentativas;
+  - teste garantindo que payload publicado preserva o envelope sanitizado.
+- **Comando de validação:**
+  - `./gradlew :auth-user-service:test`
+- **Mensagem de commit sugerida:**
+  - `feat: publish pending outbox events`
+
+### T19 - Cover outbox event publishing
+
+- **ID:** T19
+- **Título:** Cover outbox event publishing
+- **Objetivo:** Consolidar a cobertura automatizada do fluxo completo de outbox do `auth-user-service`, cobrindo persistência, transação, publicação assíncrona, retry e falha final.
+- **Escopo:**
+  - complementar testes de migration, persistência e integração;
+  - validar o fluxo de criação de usuário com registro de outbox;
+  - validar publicação assíncrona, retry e status finais;
+  - proteger o contrato de que eventos não expõem senha nem hash.
+- **Fora de escopo:**
+  - testes de consumo do `notification-service`;
+  - testes de DLQ do consumidor;
+  - operação de reprocessamento manual;
+  - cobertura de eventos futuros além de `UserCreated`.
+- **Arquivos esperados:**
+  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/integration/CreateUserIntegrationTest.java`
+  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/integration/CreateUserTransactionTest.java`
+  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/infrastructure/messaging/OutboxEventRelayTest.java`
+  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/infrastructure/persistence/JdbcOutboxEventRepositoryTest.java`
+  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/infrastructure/persistence/OutboxMigrationTest.java`
+- **Critérios de aceite:**
+  - o fluxo de outbox possui cobertura automatizada suficiente para critérios do ADR-006;
+  - criação de usuário registra `UserCreated` na outbox;
+  - rollback transacional impede persistência parcial de usuário ou evento;
+  - relay publica eventos elegíveis e atualiza estado corretamente;
+  - falhas de publicação são observáveis e atualizam tentativas;
+  - payload publicado não contém senha nem hash;
+  - build do módulo passa com a cobertura exigida.
+- **Testes esperados:**
+  - testes unitários e de integração para registro de outbox;
+  - testes de persistência para schema e constraints de `outbox_events`;
+  - testes do relay para sucesso, retry e falha final;
+  - testes garantindo ausência de dados sensíveis no evento publicado;
+  - testes cobrindo segurança contra duplicidade por `eventId` no limite do producer.
+- **Comando de validação:**
+  - `./gradlew :auth-user-service:test`
+  - `./gradlew :auth-user-service:build`
+- **Mensagem de commit sugerida:**
+  - `test: cover outbox event publishing`
+
 ## Validação final da entrega
 
 Ao concluir todas as tasks, executar:
@@ -399,7 +579,8 @@ Critérios finais:
 - Todos os testes passam.
 - `POST /users` cumpre o contrato do FDD.
 - Senha nunca é persistida, retornada, logada ou publicada em evento em texto puro.
-- `UserCreated` é publicado após criação bem-sucedida.
+- `UserCreated` é registrado na outbox após criação bem-sucedida.
+- Eventos pendentes da outbox podem ser publicados por relay assíncrono com controle de status e tentativas.
 - O serviço acessa somente o banco do `auth-user-service`.
 
 ## Commit sugerido para este plano

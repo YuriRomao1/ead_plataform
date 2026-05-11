@@ -101,7 +101,7 @@ Dados sensíveis:
 | Interface | Tipo | Descrição | Status |
 | --- | --- | --- | --- |
 | `POST /users` | REST | Criação de usuário definida no FDD-001. | planned |
-| `UserCreated` | Event | Evento registrado na outbox após criação bem-sucedida de usuário e publicado assincronamente. | planned |
+| `UserCreated` | Event | Evento registrado na outbox após criação bem-sucedida de usuário e publicado assincronamente por relay. | planned |
 | User validation API | REST | Interface futura para validação de usuário e papéis por outros serviços. | draft |
 
 ## 9. Comunicação síncrona
@@ -129,6 +129,8 @@ Eventos planejados:
 - `UserCreated`, registrado na tabela `outbox_events` na mesma transação que persiste o usuário e publicado posteriormente no RabbitMQ por relay assíncrono.
 
 A tabela `outbox_events` pertence ao banco do `auth-user-service`. Ela guarda `id`, `aggregate_type`, `aggregate_id`, `event_type`, `event_id`, `payload` JSONB, `status`, `attempts`, `last_error`, `next_attempt_at`, `created_at`, `published_at` e `updated_at`. O `payload` JSONB armazena o envelope sanitizado do evento para preservar `occurredAt` sem expor senha ou hash.
+
+No nível arquitetural, a outbox é a fonte local de verdade para eventos pendentes de publicação. O relay deve buscar apenas registros `PENDING` elegíveis, publicar o evento no broker e atualizar o estado para `PUBLISHED` ou `FAILED` conforme o resultado das tentativas.
 
 O serviço não deve consumir eventos nesta primeira fase.
 
@@ -209,11 +211,10 @@ Considerações:
 - o serviço deve poder escalar horizontalmente quando não mantiver estado em memória;
 - unicidade de e-mail deve ser garantida também no banco;
 - hash BCrypt é CPU-intensive e pode limitar throughput;
-- publicação direta de evento após persistência pode gerar inconsistência se falhar;
 - outbox reduz perda de evento, mas exige retry e limpeza operacional;
 - timeouts devem ser definidos para integrações REST futuras.
 
-O ADR-006 define outbox transacional para eventos de domínio do `auth-user-service`. Estratégias definitivas de retry avançado, DLQ e limpeza de registros antigos ainda exigem decisão própria.
+O ADR-006 define outbox transacional para eventos de domínio do `auth-user-service`. O ADR-007 complementa a estratégia inicial de retry do producer e a topologia de mensageria. Permanecem em aberto as decisões operacionais de reprocessamento manual e limpeza de registros antigos.
 
 ## 15. Riscos arquiteturais
 
@@ -253,7 +254,6 @@ O FDD-001 define a primeira entrega funcional: criação de usuário, validaçõ
 
 - Implementar criação de usuário conforme FDD-001 e plano associado.
 - Definir migrações do banco `auth_user_db`.
-- Configurar publicação assíncrona de `UserCreated` a partir da outbox.
 - Definir cenários Cucumber para criação de usuário, registro na outbox e publicação de evento.
 - Implementar a topologia RabbitMQ definida no ADR-007 nos consumidores.
 - Criar FDD/ADR para login e tokens antes de implementar autenticação.

@@ -27,7 +27,6 @@ O componente resolve o problema arquitetural de desacoplar serviços em fluxos q
 
 ### Fora de escopo
 
-- Topologia definitiva de exchanges, filas e routing keys.
 - Implementação de producers e consumers.
 - Configuração linha a linha de RabbitMQ.
 - Payloads completos além do necessário para orientar FDDs.
@@ -89,6 +88,8 @@ Eventos iniciais:
 
 O broker não é fonte de verdade de domínio. A fonte de verdade permanece no banco do serviço produtor.
 
+Quando um producer usa outbox, a fonte local para eventos pendentes passa a ser a tabela de outbox do próprio serviço produtor, e não o broker.
+
 ## 8. Interfaces públicas
 
 | Interface | Tipo | Descrição | Status |
@@ -125,12 +126,16 @@ Diretrizes:
 - produtores devem registrar eventos em mecanismo confiável após persistência bem-sucedida do fato;
 - o `auth-user-service` usa outbox transacional para gravar `UserCreated` na mesma transação do usuário;
 - o relay da outbox publica apenas eventos com `status = PENDING` e `next_attempt_at` vencido;
+- após sucesso, o producer deve atualizar o registro para `PUBLISHED`;
+- após falha final, o producer deve atualizar o registro para `FAILED`;
 - eventos não devem conter senha, hash ou segredos;
 - consumers devem ser idempotentes;
 - cada evento deve carregar `eventId`;
 - falhas devem ser observáveis;
-- retry e DLQ devem ser definidos antes de uso crítico.
+- retry e DLQ devem ser definidos antes de uso crítico;
 - a topologia inicial de RabbitMQ, retry e DLQ é definida no ADR-007.
+
+No producer, retry de publicação e controle de status pertencem ao mecanismo de outbox. No consumer, retry, DLQ e idempotência pertencem ao processamento da mensagem já entregue pelo broker.
 
 ## 11. Fluxos principais
 
@@ -215,7 +220,9 @@ Considerações:
 
 - RabbitMQ permite desacoplamento temporal, mas não elimina necessidade de idempotência;
 - producers devem lidar com indisponibilidade do broker;
+- producers com outbox devem tratar `PENDING`, `PUBLISHED` e `FAILED` como estados explícitos da publicação;
 - consumers devem lidar com entrega duplicada;
+- falhas entre publicação no broker e atualização do estado local podem exigir republicação segura do mesmo `eventId`;
 - retry sem limite pode causar loops;
 - DLQ deve isolar mensagens com falha persistente;
 - outbox transacional é a estratégia aceita para coordenar persistência local e publicação de eventos do `auth-user-service`.
@@ -225,6 +232,7 @@ Considerações:
 | Risco | Probabilidade | Impacto | Mitigação | Contingência |
 | --- | --- | --- | --- | --- |
 | Perda de evento após persistência local. | média | alto | Usar outbox transacional no produtor quando definido em ADR. | Reprocessar eventos pendentes ou com falha a partir da outbox do serviço produtor. |
+| Publicação duplicada por retry do producer ou falha após envio ao broker. | média | médio | Rastrear publicação por `eventId`, status da outbox e política de retry controlada. | Consumidores devem confirmar mensagens de forma idempotente. |
 | Processamento duplicado por consumers. | alta | médio | Idempotência por `eventId`. | Rotina de deduplicação. |
 | Mensagem inválida bloquear consumo. | média | alto | Validar payload e usar DLQ. | Quarentena e reprocessamento manual. |
 | Payload evoluir quebrando consumidores. | média | alto | Versionamento de eventos. | Manter compatibilidade ou criar novo tipo/versão. |
@@ -249,7 +257,7 @@ Considerações:
 Documentos relacionados:
 
 - `docs/fdds/fdd-001-auth-user-service.md`, que define `UserCreated`.
-- `docs/implementation-plans/plan-001-auth-user-service.md`, que prevê modelo de evento, producer RabbitMQ e publicação de `UserCreated`.
+- `docs/implementation-plans/plan-001-auth-user-service.md`, que prevê registro transacional do evento, relay assíncrono da outbox e cobertura de publicação de `UserCreated`.
 
 FDDs futuros devem detalhar `EnrollmentCreated`, consumers do `notification-service`, idempotência e tratamento de falhas.
 
