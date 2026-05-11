@@ -8,7 +8,6 @@ import java.time.ZoneOffset;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Repository;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -17,7 +16,6 @@ import tools.jackson.databind.json.JsonMapper;
  * <p>The RabbitMQ delivery is intentionally left to a separate asynchronous publisher so use cases
  * do not depend on broker availability.
  */
-@Repository
 public class OutboxDomainEventRecorder implements DomainEventRecorder {
 
   private static final String USER_AGGREGATE_TYPE = "User";

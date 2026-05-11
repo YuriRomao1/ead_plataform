@@ -14,7 +14,6 @@ import static org.mockito.Mockito.when;
 
 import com.yuriromao.ead.authuser.application.event.UserCreatedEvent;
 import com.yuriromao.ead.authuser.application.event.UserCreatedPayload;
-import com.yuriromao.ead.authuser.application.port.DomainEventRecorder;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -32,12 +31,13 @@ class OutboxDomainEventRecorderTest {
 
   private static final UUID USER_ID = UUID.fromString("6fbe1f59-aace-4bb9-8ff6-9da5e1183f17");
 
-  @Autowired private DomainEventRecorder domainEventRecorder;
-
   @Autowired private JdbcTemplate jdbcTemplate;
 
   @Test
   void shouldRecordUserCreatedEventAsPendingOutboxEvent() {
+    OutboxDomainEventRecorder domainEventRecorder =
+        new OutboxDomainEventRecorder(
+            jdbcTemplate, JsonMapper.builder().findAndAddModules().build());
     UserCreatedEvent event = userCreatedEvent();
 
     domainEventRecorder.record(event);
@@ -91,7 +91,7 @@ class OutboxDomainEventRecorderTest {
   void shouldFailWhenEventSerializationFails() throws Exception {
     JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
     JsonMapper jsonMapper = mock(JsonMapper.class);
-    DomainEventRecorder recorder = new OutboxDomainEventRecorder(jdbcTemplate, jsonMapper);
+    OutboxDomainEventRecorder recorder = new OutboxDomainEventRecorder(jdbcTemplate, jsonMapper);
     UserCreatedEvent event = userCreatedEvent();
     when(jsonMapper.writeValueAsString(any(UserCreatedEvent.class)))
         .thenThrow(new IllegalStateException("serialization failed"));
