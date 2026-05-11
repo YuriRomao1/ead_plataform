@@ -1,6 +1,120 @@
 # Commit Summaries
 
-Este arquivo registra um mini resumo técnico dos commits do projeto. A intenção é facilitar a leitura da evolução do repositório sem precisar abrir o diff completo de cada alteração.
+Este arquivo registra um resumo persistente e auditável dos commits do projeto.
+
+Uso esperado:
+
+- `commit`: resumo curto do que foi feito;
+- `pull request`: contexto técnico completo para revisão;
+- `docs/commit-summaries.md`: registro permanente do contexto principal de cada commit.
+
+## Formato atual
+
+Todo novo commit criado no projeto deve receber uma entrada neste arquivo usando o formato abaixo.
+
+```md
+## <commit-hash> - <commit-message>
+
+### Changelog
+What is this change about?
+
+### Motivation
+Why are we doing this change?
+
+### Consequences
+What are the advantages and disadvantages of making this change?
+Does it impact other systems and/or applications?
+Are there any risks?
+
+### Metrics
+How can we measure the success or failure of this change?
+
+### Test Scenarios
+How can we test this change?
+
+### Evidence
+How do we prove this change works?
+```
+
+## Histórico legado
+
+As entradas abaixo foram registradas antes da adoção do formato estruturado atual e são mantidas apenas como histórico resumido.
+
+## 955b251 - feat: add outbox event persistence
+
+### Changelog
+Adds JPA-based persistence for domain events in the `outbox_events` table of `auth-user-service`.
+
+### Motivation
+Implements the local persistence layer required by ADR-006 so domain events can be recorded in the same database transaction as local state changes.
+
+### Consequences
+Advantages:
+Creates a durable local record of pending domain events and removes the need to depend on immediate RabbitMQ availability during event recording.
+
+Disadvantages:
+Adds persistence complexity and temporarily keeps both the legacy JDBC recorder class and the new JPA-based adapter in the module.
+
+Impact:
+Impacts only `auth-user-service` and only its own database structures and application persistence boundary.
+
+Risks:
+If multiple recorder implementations become active in the Spring context at the same time, the application could become ambiguous. This change avoids that by making the JPA adapter the active bean and removing the old recorder from the Spring context.
+
+### Metrics
+- New `UserCreated` events are inserted into `outbox_events`.
+- New rows start with `status = PENDING`.
+- New rows start with `attempts = 0`.
+- Module test and build success rate remains green.
+
+### Test Scenarios
+- Persist a valid `UserCreatedEvent` in `outbox_events`.
+- Verify `eventId`, `eventType`, `aggregateType`, and `aggregateId`.
+- Verify initial `PENDING` status and `attempts = 0`.
+- Verify payload does not contain password or hash.
+- Verify the recorder fails when the event is null.
+
+### Evidence
+- `.\gradlew.bat :auth-user-service:test --tests "com.yuriromao.ead.authuser.infrastructure.outbox.JpaDomainEventRecorderTest"`
+- `.\gradlew.bat :auth-user-service:test`
+- `.\gradlew.bat :auth-user-service:build`
+
+## b874bb1 - docs: add outbox implementation tasks
+
+### Changelog
+Updates the implementation plan and HLDs to formalize T16, T17, T18, and T19 for the transactional outbox flow.
+
+### Motivation
+Brings the project documentation in line with ADR-006 and ADR-007 so the outbox work is explicitly planned, traceable, and reviewable.
+
+### Consequences
+Advantages:
+Clarifies the intended sequence of outbox persistence, event recording, async publishing, and test coverage.
+
+Disadvantages:
+Adds more process detail to the implementation plan and requires future tasks to keep documentation and code aligned.
+
+Impact:
+Impacts project documentation only. No runtime behavior or production code changed in this commit.
+
+Risks:
+If future code evolves without updating the plan and HLDs, the documentation can drift again from the real implementation state.
+
+### Metrics
+- T16 to T19 are explicitly documented in the implementation plan.
+- HLD documents the outbox as the local source of pending events.
+- HLD documents producer retry/status flow and consumer idempotency expectations.
+
+### Test Scenarios
+- Review the updated plan to confirm T16, T17, T18, and T19 include scope, acceptance criteria, validation commands, and suggested commit messages.
+- Review HLD-001 to confirm `auth-user-service` records events before publishing.
+- Review HLD-004 to confirm pending events, async relay, retry, statuses, duplication risk, and consumer idempotency are covered.
+
+### Evidence
+- Manual review of:
+  - `docs/implementation-plans/plan-001-auth-user-service.md`
+  - `docs/hlds/hld-001-auth-user-service.md`
+  - `docs/hlds/hld-004-event-driven-communication.md`
 
 | Commit | Mensagem | Mini resumo |
 | --- | --- | --- |

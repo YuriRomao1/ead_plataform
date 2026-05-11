@@ -130,6 +130,7 @@ A task is complete only when:
 - tests pass;
 - project builds;
 - documentation is updated when needed;
+- commit summary is updated in `docs/commit-summaries.md` when commits are created;
 - the final response explains what changed.
 
 ## Git Rules
@@ -142,3 +143,37 @@ After each task, provide:
 - tests executed;
 - result;
 - suggested commit message.
+
+When one or more commits are created, also update `docs/commit-summaries.md`.
+
+Commit messages must stay short and objective.
+
+Use this split of responsibility:
+
+- commit: short summary of what was done;
+- pull request: complete engineering context;
+- `docs/commit-summaries.md`: persistent and auditable record inside the repository.
+
+Each new entry in `docs/commit-summaries.md` must include:
+
+- commit hash;
+- commit message;
+- Changelog;
+- Motivation;
+- Consequences;
+- Metrics;
+- Test Scenarios;
+- Evidence.
+
+If more than one commit is created in the same task, each commit must have its own entry.
+
+## Pull Request Rules
+
+Every pull request description must include these sections:
+
+- Changelog
+- Motivation
+- Consequences
+- Metrics
+- Test Scenarios
+- Evidence
