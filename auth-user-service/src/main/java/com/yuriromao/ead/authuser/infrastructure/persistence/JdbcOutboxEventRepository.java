@@ -8,31 +8,29 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-/**
- * JDBC adapter for the transactional outbox table owned by auth-user-service.
- */
+/** JDBC adapter for the transactional outbox table owned by auth-user-service. */
 @Repository
 public class JdbcOutboxEventRepository implements OutboxEventRepository {
 
-	private final JdbcTemplate jdbcTemplate;
+  private final JdbcTemplate jdbcTemplate;
 
-	public JdbcOutboxEventRepository(JdbcTemplate jdbcTemplate) {
-		this.jdbcTemplate = Objects.requireNonNull(jdbcTemplate, "jdbcTemplate must not be null");
-	}
+  public JdbcOutboxEventRepository(JdbcTemplate jdbcTemplate) {
+    this.jdbcTemplate = Objects.requireNonNull(jdbcTemplate, "jdbcTemplate must not be null");
+  }
 
-	@Override
-	public List<OutboxEvent> findPendingEvents(int limit, Instant now) {
-		if (limit < 1) {
-			throw new IllegalArgumentException("limit must be greater than zero");
-		}
+  @Override
+  public List<OutboxEvent> findPendingEvents(int limit, Instant now) {
+    if (limit < 1) {
+      throw new IllegalArgumentException("limit must be greater than zero");
+    }
 
-		Objects.requireNonNull(now, "now must not be null");
+    Objects.requireNonNull(now, "now must not be null");
 
-		return jdbcTemplate.query("""
+    return jdbcTemplate.query(
+        """
 				select id,
 				       aggregate_type,
 				       aggregate_id,
@@ -46,20 +44,21 @@ public class JdbcOutboxEventRepository implements OutboxEventRepository {
 				order by created_at, id
 				limit ?
 				""",
-				this::mapOutboxEvent,
-				OutboxEventStatus.PENDING.name(),
-				toDatabaseTimestamp(now),
-				limit);
-	}
+        this::mapOutboxEvent,
+        OutboxEventStatus.PENDING.name(),
+        toDatabaseTimestamp(now),
+        limit);
+  }
 
-	@Override
-	public void markPublished(UUID eventId, Instant publishedAt) {
-		Objects.requireNonNull(eventId, "eventId must not be null");
-		Objects.requireNonNull(publishedAt, "publishedAt must not be null");
+  @Override
+  public void markPublished(UUID eventId, Instant publishedAt) {
+    Objects.requireNonNull(eventId, "eventId must not be null");
+    Objects.requireNonNull(publishedAt, "publishedAt must not be null");
 
-		LocalDateTime timestamp = toDatabaseTimestamp(publishedAt);
+    LocalDateTime timestamp = toDatabaseTimestamp(publishedAt);
 
-		jdbcTemplate.update("""
+    jdbcTemplate.update(
+        """
 				update outbox_events
 				set status = ?,
 				    published_at = ?,
@@ -68,26 +67,28 @@ public class JdbcOutboxEventRepository implements OutboxEventRepository {
 				    next_attempt_at = ?
 				where event_id = ?
 				""",
-				OutboxEventStatus.PUBLISHED.name(),
-				timestamp,
-				timestamp,
-				timestamp,
-				eventId);
-	}
+        OutboxEventStatus.PUBLISHED.name(),
+        timestamp,
+        timestamp,
+        timestamp,
+        eventId);
+  }
 
-	@Override
-	public void markFailed(UUID eventId, OutboxEventStatus status, String lastError, Instant nextAttemptAt) {
-		Objects.requireNonNull(eventId, "eventId must not be null");
-		Objects.requireNonNull(status, "status must not be null");
-		Objects.requireNonNull(nextAttemptAt, "nextAttemptAt must not be null");
+  @Override
+  public void markFailed(
+      UUID eventId, OutboxEventStatus status, String lastError, Instant nextAttemptAt) {
+    Objects.requireNonNull(eventId, "eventId must not be null");
+    Objects.requireNonNull(status, "status must not be null");
+    Objects.requireNonNull(nextAttemptAt, "nextAttemptAt must not be null");
 
-		if (status == OutboxEventStatus.PUBLISHED) {
-			throw new IllegalArgumentException("status must not be PUBLISHED for failure");
-		}
+    if (status == OutboxEventStatus.PUBLISHED) {
+      throw new IllegalArgumentException("status must not be PUBLISHED for failure");
+    }
 
-		Instant now = Instant.now();
+    Instant now = Instant.now();
 
-		jdbcTemplate.update("""
+    jdbcTemplate.update(
+        """
 				update outbox_events
 				set status = ?,
 				    attempts = attempts + 1,
@@ -96,25 +97,25 @@ public class JdbcOutboxEventRepository implements OutboxEventRepository {
 				    next_attempt_at = ?
 				where event_id = ?
 				""",
-				status.name(),
-				lastError,
-				toDatabaseTimestamp(now),
-				toDatabaseTimestamp(nextAttemptAt),
-				eventId);
-	}
+        status.name(),
+        lastError,
+        toDatabaseTimestamp(now),
+        toDatabaseTimestamp(nextAttemptAt),
+        eventId);
+  }
 
-	private OutboxEvent mapOutboxEvent(ResultSet resultSet, int rowNumber) throws SQLException {
-		return new OutboxEvent(
-				resultSet.getObject("id", UUID.class),
-				resultSet.getString("aggregate_type"),
-				resultSet.getObject("aggregate_id", UUID.class),
-				resultSet.getObject("event_id", UUID.class),
-				resultSet.getString("event_type"),
-				resultSet.getString("payload"),
-				resultSet.getInt("attempts"));
-	}
+  private OutboxEvent mapOutboxEvent(ResultSet resultSet, int rowNumber) throws SQLException {
+    return new OutboxEvent(
+        resultSet.getObject("id", UUID.class),
+        resultSet.getString("aggregate_type"),
+        resultSet.getObject("aggregate_id", UUID.class),
+        resultSet.getObject("event_id", UUID.class),
+        resultSet.getString("event_type"),
+        resultSet.getString("payload"),
+        resultSet.getInt("attempts"));
+  }
 
-	private static LocalDateTime toDatabaseTimestamp(Instant instant) {
-		return LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
-	}
+  private static LocalDateTime toDatabaseTimestamp(Instant instant) {
+    return LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
+  }
 }

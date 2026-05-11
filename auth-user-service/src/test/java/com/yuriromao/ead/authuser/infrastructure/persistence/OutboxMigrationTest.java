@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -17,71 +16,107 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("test")
 class OutboxMigrationTest {
 
-	@Autowired
-	private JdbcTemplate jdbcTemplate;
+  @Autowired private JdbcTemplate jdbcTemplate;
 
-	@Test
-	void shouldCreateOutboxEventsTable() {
-		Integer tableCount = jdbcTemplate.queryForObject("""
+  @Test
+  void shouldCreateOutboxEventsTable() {
+    Integer tableCount =
+        jdbcTemplate.queryForObject(
+            """
 				select count(*)
 				from information_schema.tables
 				where table_schema = 'public'
 				  and table_name = 'outbox_events'
-				""", Integer.class);
+				""",
+            Integer.class);
 
-		assertTrue(tableCount != null && tableCount == 1);
-	}
+    assertTrue(tableCount != null && tableCount == 1);
+  }
 
-	@Test
-	void shouldCreateRequiredOutboxEventColumns() {
-		Map<String, String> columns = jdbcTemplate.queryForList("""
+  @Test
+  void shouldCreateRequiredOutboxEventColumns() {
+    Map<String, String> columns =
+        jdbcTemplate
+            .queryForList(
+                """
 				select column_name, data_type
 				from information_schema.columns
 				where table_schema = 'public'
 				  and table_name = 'outbox_events'
-				""").stream()
-				.collect(Collectors.toMap(
-						row -> (String) row.get("column_name"),
-						row -> (String) row.get("data_type")));
+				""")
+            .stream()
+            .collect(
+                Collectors.toMap(
+                    row -> (String) row.get("column_name"), row -> (String) row.get("data_type")));
 
-		assertAll(
-				() -> assertTrue(columns.entrySet().contains(Map.entry("id", "uuid"))),
-				() -> assertTrue(columns.entrySet().contains(Map.entry("aggregate_type", "character varying"))),
-				() -> assertTrue(columns.entrySet().contains(Map.entry("aggregate_id", "uuid"))),
-				() -> assertTrue(columns.entrySet().contains(Map.entry("event_id", "uuid"))),
-				() -> assertTrue(columns.entrySet().contains(Map.entry("event_type", "character varying"))),
-				() -> assertTrue(columns.entrySet().contains(Map.entry("payload", "jsonb"))),
-				() -> assertTrue(columns.entrySet().contains(Map.entry("status", "character varying"))),
-				() -> assertTrue(columns.entrySet().contains(Map.entry("attempts", "integer"))),
-				() -> assertTrue(columns.entrySet().contains(Map.entry("last_error", "text"))),
-				() -> assertTrue(columns.entrySet().contains(Map.entry("created_at", "timestamp without time zone"))),
-				() -> assertTrue(columns.entrySet().contains(Map.entry("updated_at", "timestamp without time zone"))),
-				() -> assertTrue(columns.entrySet().contains(Map.entry("published_at", "timestamp without time zone"))),
-				() -> assertTrue(columns.entrySet().contains(Map.entry("next_attempt_at", "timestamp without time zone"))));
-	}
+    assertAll(
+        () -> assertTrue(columns.entrySet().contains(Map.entry("id", "uuid"))),
+        () ->
+            assertTrue(
+                columns.entrySet().contains(Map.entry("aggregate_type", "character varying"))),
+        () -> assertTrue(columns.entrySet().contains(Map.entry("aggregate_id", "uuid"))),
+        () -> assertTrue(columns.entrySet().contains(Map.entry("event_id", "uuid"))),
+        () -> assertTrue(columns.entrySet().contains(Map.entry("event_type", "character varying"))),
+        () -> assertTrue(columns.entrySet().contains(Map.entry("payload", "jsonb"))),
+        () -> assertTrue(columns.entrySet().contains(Map.entry("status", "character varying"))),
+        () -> assertTrue(columns.entrySet().contains(Map.entry("attempts", "integer"))),
+        () -> assertTrue(columns.entrySet().contains(Map.entry("last_error", "text"))),
+        () ->
+            assertTrue(
+                columns
+                    .entrySet()
+                    .contains(Map.entry("created_at", "timestamp without time zone"))),
+        () ->
+            assertTrue(
+                columns
+                    .entrySet()
+                    .contains(Map.entry("updated_at", "timestamp without time zone"))),
+        () ->
+            assertTrue(
+                columns
+                    .entrySet()
+                    .contains(Map.entry("published_at", "timestamp without time zone"))),
+        () ->
+            assertTrue(
+                columns
+                    .entrySet()
+                    .contains(Map.entry("next_attempt_at", "timestamp without time zone"))));
+  }
 
-	@Test
-	void shouldCreateOutboxConstraintsAndIndexes() {
-		Set<String> constraintNames = jdbcTemplate.queryForList("""
+  @Test
+  void shouldCreateOutboxConstraintsAndIndexes() {
+    Set<String> constraintNames =
+        jdbcTemplate
+            .queryForList(
+                """
 				select constraint_name
 				from information_schema.table_constraints
 				where table_schema = 'public'
 				  and table_name = 'outbox_events'
-				""", String.class).stream().collect(Collectors.toSet());
+				""",
+                String.class)
+            .stream()
+            .collect(Collectors.toSet());
 
-		Set<String> indexNames = jdbcTemplate.queryForList("""
+    Set<String> indexNames =
+        jdbcTemplate
+            .queryForList(
+                """
 				select indexname
 				from pg_indexes
 				where schemaname = 'public'
 				  and tablename = 'outbox_events'
-				""", String.class).stream().collect(Collectors.toSet());
+				""",
+                String.class)
+            .stream()
+            .collect(Collectors.toSet());
 
-		assertAll(
-				() -> assertTrue(constraintNames.contains("outbox_events_pkey")),
-				() -> assertTrue(constraintNames.contains("uk_outbox_events_event_id")),
-				() -> assertTrue(constraintNames.contains("ck_outbox_events_status")),
-				() -> assertTrue(constraintNames.contains("ck_outbox_events_attempts_non_negative")),
-				() -> assertTrue(indexNames.contains("idx_outbox_events_status_next_attempt_at")),
-				() -> assertTrue(indexNames.contains("idx_outbox_events_aggregate_type_aggregate_id")));
-	}
+    assertAll(
+        () -> assertTrue(constraintNames.contains("outbox_events_pkey")),
+        () -> assertTrue(constraintNames.contains("uk_outbox_events_event_id")),
+        () -> assertTrue(constraintNames.contains("ck_outbox_events_status")),
+        () -> assertTrue(constraintNames.contains("ck_outbox_events_attempts_non_negative")),
+        () -> assertTrue(indexNames.contains("idx_outbox_events_status_next_attempt_at")),
+        () -> assertTrue(indexNames.contains("idx_outbox_events_aggregate_type_aggregate_id")));
+  }
 }

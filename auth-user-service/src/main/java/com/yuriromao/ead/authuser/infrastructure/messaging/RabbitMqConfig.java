@@ -6,26 +6,25 @@ import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
 import tools.jackson.databind.json.JsonMapper;
 
 /**
  * RabbitMQ producer configuration for auth-user-service domain events.
  *
- * Initial operational convention, pending a RabbitMQ topology ADR: publish
- * domain events to a durable topic exchange and use event-specific routing keys.
+ * <p>ADR-007 defines the initial topology: publish domain events to a durable topic exchange and
+ * use event-specific routing keys.
  */
 @Configuration
 public class RabbitMqConfig {
 
-	@Bean
-	TopicExchange domainEventsExchange(
-			@Value("${auth-user-service.messaging.rabbitmq.exchange}") String exchangeName) {
-		return new TopicExchange(exchangeName, true, false);
-	}
+  @Bean
+  TopicExchange domainEventsExchange(
+      @Value("${auth-user-service.messaging.rabbitmq.exchange}") String exchangeName) {
+    return new TopicExchange(exchangeName, true, false);
+  }
 
-	@Bean
-	MessageConverter jacksonMessageConverter() {
-		return new JacksonJsonMessageConverter(JsonMapper.builder().findAndAddModules().build());
-	}
+  @Bean
+  MessageConverter jacksonMessageConverter() {
+    return new JacksonJsonMessageConverter(JsonMapper.builder().findAndAddModules().build());
+  }
 }

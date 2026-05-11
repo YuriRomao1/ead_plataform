@@ -8,8 +8,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @SpringBootApplication
 public class AuthUserServiceApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(AuthUserServiceApplication.class, args);
-	}
-
+  public static void main(String[] args) {
+    SpringApplication.run(AuthUserServiceApplication.class, args);
+  }
 }
