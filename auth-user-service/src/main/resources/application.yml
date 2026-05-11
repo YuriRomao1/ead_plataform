@@ -12,6 +12,11 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: ead
+    password: ead
 
 server:
   port: 8081
@@ -20,3 +25,7 @@ auth-user-service:
   security:
     password:
       bcrypt-strength: 10
+  messaging:
+    rabbitmq:
+      exchange: ead.domain.events
+      user-created-routing-key: auth-user.user-created
