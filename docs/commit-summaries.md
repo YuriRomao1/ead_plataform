@@ -150,6 +150,42 @@ Se o código legado de Outbox JDBC permanecer por muito tempo, novos contribuido
 - `rg` para confirmar remoção dos textos obsoletos.
 - `git diff --check`
 
+## 1da83b0 - docs: improve code documentation
+
+### Changelog
+Adiciona Javadocs curtos em classes e métodos públicos relevantes do `auth-user-service`, cobrindo domínio, aplicação, ports, adapters HTTP, persistência, segurança, RabbitMQ e Outbox.
+
+### Motivation
+Melhorar a legibilidade do código para novos desenvolvedores sem violar a regra do projeto de manter código e comentários Java em inglês.
+
+### Consequences
+Advantages:
+Facilita onboarding e revisão de responsabilidades entre camadas sem alterar comportamento.
+
+Disadvantages:
+Comentários precisam continuar sincronizados quando responsabilidades mudarem.
+
+Impact:
+Impacta somente documentação inline no código Java. Não altera contrato HTTP, banco, migrations, configuração ou lógica de runtime.
+
+Risks:
+Comentários excessivos podem ficar obsoletos se mudanças futuras não atualizarem a documentação junto com o código.
+
+### Metrics
+- Classes e métodos públicos centrais possuem Javadocs de responsabilidade.
+- Build do módulo continua passando.
+- Formatação Java continua válida pelo Spotless.
+
+### Test Scenarios
+- Executar validação de formatação Java.
+- Executar build completo do `auth-user-service`.
+- Revisar se os comentários explicam fronteiras de domínio, aplicação e infraestrutura sem duplicar código trivial.
+
+### Evidence
+- `.\gradlew.bat :auth-user-service:spotlessJavaCheck`
+- `.\gradlew.bat :auth-user-service:build`
+- `git diff --check`
+
 | Commit | Mensagem | Mini resumo |
 | --- | --- | --- |
 | `8416c7c` | `first commit` | Inicia o repositório com a base inicial do projeto. |
