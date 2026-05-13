@@ -17,12 +17,14 @@ import tools.jackson.databind.json.JsonMapper;
 @Configuration
 public class RabbitMqConfig {
 
+  /** Declares the durable domain-event exchange used by producers in local and runtime profiles. */
   @Bean
   TopicExchange domainEventsExchange(
       @Value("${auth-user-service.messaging.rabbitmq.exchange}") String exchangeName) {
     return new TopicExchange(exchangeName, true, false);
   }
 
+  /** Configures RabbitMQ messages to use JSON serialization for domain-event envelopes. */
   @Bean
   MessageConverter jacksonMessageConverter() {
     return new JacksonJsonMessageConverter(JsonMapper.builder().findAndAddModules().build());

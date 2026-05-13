@@ -13,6 +13,7 @@ public final class UserCreatedEventFactory {
 
   private UserCreatedEventFactory() {}
 
+  /** Converts a persisted user aggregate into the public UserCreated event payload. */
   public static UserCreatedEvent from(User user) {
     Objects.requireNonNull(user, "user must not be null");
 

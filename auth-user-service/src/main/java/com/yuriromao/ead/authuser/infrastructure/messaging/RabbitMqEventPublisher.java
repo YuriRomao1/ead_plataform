@@ -32,6 +32,7 @@ public class RabbitMqEventPublisher implements EventPublisher {
     this.userCreatedRoutingKey = requireText(userCreatedRoutingKey, "userCreatedRoutingKey");
   }
 
+  /** Sends UserCreated to RabbitMQ using the exchange and routing key defined in configuration. */
   @Override
   public void publish(UserCreatedEvent event) {
     rabbitTemplate.convertAndSend(

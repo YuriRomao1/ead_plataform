@@ -4,6 +4,12 @@ import com.yuriromao.ead.authuser.domain.model.UserRole;
 import java.util.Objects;
 import java.util.Set;
 
+/**
+ * Application command for creating a user.
+ *
+ * <p>The command is created by inbound adapters and validates the minimum data required by the use
+ * case before domain creation begins.
+ */
 public record CreateUserCommand(String name, String email, String password, Set<UserRole> roles) {
 
   public CreateUserCommand {

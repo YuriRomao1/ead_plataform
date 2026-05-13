@@ -20,6 +20,12 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * JPA mapping for the users table and its role collection.
+ *
+ * <p>This persistence shape is intentionally separate from the domain aggregate so database
+ * annotations and collection mapping concerns do not leak into the domain model.
+ */
 @Entity
 @Table(name = "users")
 public class UserJpaEntity {
@@ -76,6 +82,7 @@ public class UserJpaEntity {
     this.updatedAt = updatedAt;
   }
 
+  /** Converts a domain user into the persistence entity written by Spring Data JPA. */
   static UserJpaEntity fromDomain(User user) {
     return new UserJpaEntity(
         user.getId(),

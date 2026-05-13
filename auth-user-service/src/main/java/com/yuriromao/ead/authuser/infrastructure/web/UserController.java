@@ -29,6 +29,7 @@ public class UserController {
         Objects.requireNonNull(createUserUseCase, "createUserUseCase must not be null");
   }
 
+  /** Handles POST /users by delegating creation to the application use case. */
   @PostMapping
   public ResponseEntity<UserResponse> createUser(
       @Valid @RequestBody CreateUserRequest request, UriComponentsBuilder uriBuilder) {

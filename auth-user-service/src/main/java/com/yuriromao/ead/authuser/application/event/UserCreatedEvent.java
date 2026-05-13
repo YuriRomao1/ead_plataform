@@ -22,6 +22,7 @@ public record UserCreatedEvent(
     payload = Objects.requireNonNull(payload, "payload must not be null");
   }
 
+  /** Creates a new UserCreated event envelope with a generated event id and current timestamp. */
   public static UserCreatedEvent create(UserCreatedPayload payload) {
     return new UserCreatedEvent(UUID.randomUUID(), EVENT_TYPE, Instant.now(), payload);
   }

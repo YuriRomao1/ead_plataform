@@ -17,6 +17,7 @@ public class UserEmailAlreadyExistsException extends RuntimeException {
     this.email = Objects.requireNonNull(email, "email must not be null");
   }
 
+  /** Returns the duplicated email for internal logging or diagnostics. */
   public String getEmail() {
     return email;
   }

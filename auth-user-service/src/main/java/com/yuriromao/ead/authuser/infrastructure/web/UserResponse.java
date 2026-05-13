@@ -8,6 +8,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Public HTTP response returned after a user is created.
+ *
+ * <p>The response intentionally contains only public user data and excludes password and password
+ * hash fields.
+ */
 public record UserResponse(
     UUID id, String name, String email, UserStatus status, Set<UserRole> roles, Instant createdAt) {
 
@@ -20,6 +26,7 @@ public record UserResponse(
     createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
   }
 
+  /** Converts the application use-case result to the HTTP response contract. */
   static UserResponse from(CreateUserResult result) {
     Objects.requireNonNull(result, "result must not be null");
 

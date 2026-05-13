@@ -20,6 +20,7 @@ public class JpaUserRepository implements UserRepository {
     this.userJpaRepository = userJpaRepository;
   }
 
+  /** Saves the domain user by converting it to the JPA entity shape used by the database schema. */
   @Override
   public User save(User user) {
     Objects.requireNonNull(user, "user must not be null");
@@ -27,6 +28,7 @@ public class JpaUserRepository implements UserRepository {
     return user;
   }
 
+  /** Delegates email uniqueness checks to the database-backed Spring Data repository. */
   @Override
   public boolean existsByEmail(String email) {
     Objects.requireNonNull(email, "email must not be null");

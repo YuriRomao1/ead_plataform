@@ -10,5 +10,6 @@ import com.yuriromao.ead.authuser.application.event.UserCreatedEvent;
  */
 public interface DomainEventRecorder {
 
+  /** Stores the event as durable publication intent in the producer service boundary. */
   void record(UserCreatedEvent event);
 }

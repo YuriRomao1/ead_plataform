@@ -30,11 +30,13 @@ public class BCryptPasswordHasher implements PasswordHasher {
         Objects.requireNonNull(passwordEncoder, "passwordEncoder must not be null");
   }
 
+  /** Produces a BCrypt hash from a non-blank raw password. */
   @Override
   public String hash(String rawPassword) {
     return passwordEncoder.encode(requireText(rawPassword, "rawPassword"));
   }
 
+  /** Verifies a raw password against a stored BCrypt hash. */
   @Override
   public boolean matches(String rawPassword, String passwordHash) {
     return passwordEncoder.matches(

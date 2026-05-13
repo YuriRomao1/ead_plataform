@@ -10,5 +10,6 @@ import com.yuriromao.ead.authuser.application.event.UserCreatedEvent;
  */
 public interface EventPublisher {
 
+  /** Publishes a domain event to the configured asynchronous messaging mechanism. */
   void publish(UserCreatedEvent event);
 }

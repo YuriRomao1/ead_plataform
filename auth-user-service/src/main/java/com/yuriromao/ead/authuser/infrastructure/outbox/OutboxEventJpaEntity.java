@@ -13,6 +13,12 @@ import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+/**
+ * JPA mapping for durable domain events stored in the auth-user-service outbox table.
+ *
+ * <p>The entity keeps publication metadata next to the event payload so the asynchronous publisher
+ * can retry, mark success, or stop after the configured attempt limit.
+ */
 @Entity
 @Table(name = "outbox_events")
 public class OutboxEventJpaEntity {
@@ -90,6 +96,7 @@ public class OutboxEventJpaEntity {
     this.updatedAt = updatedAt;
   }
 
+  /** Creates a new outbox row that is eligible for publication as soon as nextAttemptAt is due. */
   public static OutboxEventJpaEntity pending(
       String aggregateType,
       UUID aggregateId,
@@ -113,6 +120,7 @@ public class OutboxEventJpaEntity {
         now);
   }
 
+  /** Marks the event as successfully published and clears any previous error. */
   public void markAsPublished(LocalDateTime publishedAt) {
     if (publishedAt == null) {
       throw new NullPointerException("publishedAt must not be null");
@@ -125,11 +133,13 @@ public class OutboxEventJpaEntity {
     this.updatedAt = publishedAt;
   }
 
+  /** Records a recoverable publication failure and keeps the event pending for retry. */
   public void markAsFailed(
       String errorMessage, LocalDateTime nextAttemptAt, LocalDateTime updatedAt) {
     markAsFailed(OutboxEventStatus.PENDING, errorMessage, nextAttemptAt, updatedAt);
   }
 
+  /** Records a publication failure with the final status chosen by the retry policy. */
   public void markAsFailed(
       OutboxEventStatus status,
       String errorMessage,

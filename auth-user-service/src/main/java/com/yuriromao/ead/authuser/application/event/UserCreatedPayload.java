@@ -3,6 +3,12 @@ package com.yuriromao.ead.authuser.application.event;
 import java.util.Objects;
 import java.util.UUID;
 
+/**
+ * Public payload carried by the UserCreated event.
+ *
+ * <p>The payload intentionally excludes password and password hash so it can be stored in the
+ * outbox and delivered to other services safely.
+ */
 public record UserCreatedPayload(UUID userId, String name, String email) {
 
   public UserCreatedPayload {

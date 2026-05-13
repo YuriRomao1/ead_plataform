@@ -8,6 +8,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Public result returned by the create-user use case.
+ *
+ * <p>It exposes only data that can safely leave the application layer and deliberately excludes the
+ * stored password hash.
+ */
 public record CreateUserResult(
     UUID id, String name, String email, UserStatus status, Set<UserRole> roles, Instant createdAt) {
 
@@ -20,6 +26,7 @@ public record CreateUserResult(
     createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
   }
 
+  /** Maps the persisted user aggregate to the use-case response model. */
   static CreateUserResult from(User user) {
     Objects.requireNonNull(user, "user must not be null");
 

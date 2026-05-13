@@ -6,6 +6,12 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+/**
+ * Domain aggregate for a platform user.
+ *
+ * <p>The aggregate enforces core invariants that must hold regardless of the inbound adapter:
+ * required name, valid email, hashed password, status, roles, and immutable timestamps.
+ */
 public final class User {
 
   private final UUID id;
@@ -39,6 +45,11 @@ public final class User {
     this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt must not be null");
   }
 
+  /**
+   * Creates a new active user with generated id and creation timestamps.
+   *
+   * <p>The method expects the password to already be hashed by the application layer.
+   */
   public static User createNew(
       String name, String email, String passwordHash, Set<UserRole> roles) {
     Instant now = Instant.now();

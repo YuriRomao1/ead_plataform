@@ -10,7 +10,9 @@ import com.yuriromao.ead.authuser.domain.model.User;
  */
 public interface UserRepository {
 
+  /** Persists a user aggregate in the auth-user-service owned database. */
   User save(User user);
 
+  /** Checks the email uniqueness invariant before creating a new user. */
   boolean existsByEmail(String email);
 }

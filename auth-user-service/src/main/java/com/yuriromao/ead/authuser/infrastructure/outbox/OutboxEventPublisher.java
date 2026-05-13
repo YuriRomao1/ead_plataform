@@ -72,6 +72,12 @@ public class OutboxEventPublisher {
     this.clock = Objects.requireNonNull(clock, "clock must not be null");
   }
 
+  /**
+   * Publishes the next batch of eligible PENDING events.
+   *
+   * <p>The method is scheduled when the publisher is enabled, but it is also public so tests and
+   * operational callers can trigger one publishing cycle explicitly.
+   */
   @Scheduled(fixedDelayString = "${auth-user-service.outbox.publisher.fixed-delay:5000}")
   @Transactional
   public void publishPendingEvents() {

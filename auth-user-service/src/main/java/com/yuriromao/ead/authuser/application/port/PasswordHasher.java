@@ -8,7 +8,9 @@ package com.yuriromao.ead.authuser.application.port;
  */
 public interface PasswordHasher {
 
+  /** Hashes a raw password before it is persisted. */
   String hash(String rawPassword);
 
+  /** Checks whether a raw password matches a stored password hash. */
   boolean matches(String rawPassword, String passwordHash);
 }

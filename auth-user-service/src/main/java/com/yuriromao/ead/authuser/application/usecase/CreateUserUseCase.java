@@ -38,6 +38,12 @@ public class CreateUserUseCase {
         Objects.requireNonNull(domainEventRecorder, "domainEventRecorder must not be null");
   }
 
+  /**
+   * Creates a new user and records UserCreated in the transactional outbox.
+   *
+   * <p>The method is transactional so user persistence and outbox recording commit or rollback
+   * together. RabbitMQ publication happens later through the outbox publisher.
+   */
   @Transactional
   public CreateUserResult execute(CreateUserCommand command) {
     Objects.requireNonNull(command, "command must not be null");

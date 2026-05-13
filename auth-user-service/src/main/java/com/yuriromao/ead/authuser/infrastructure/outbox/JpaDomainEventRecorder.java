@@ -11,6 +11,12 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Repository;
 import tools.jackson.databind.json.JsonMapper;
 
+/**
+ * JPA adapter that records domain events in the transactional outbox table.
+ *
+ * <p>The recorder is called by application use cases inside their database transaction, so the
+ * local state change and the event publication intent are persisted atomically.
+ */
 @Primary
 @Repository
 public class JpaDomainEventRecorder implements DomainEventRecorder {
@@ -28,6 +34,7 @@ public class JpaDomainEventRecorder implements DomainEventRecorder {
     this.jsonMapper = Objects.requireNonNull(jsonMapper, "jsonMapper must not be null");
   }
 
+  /** Persists UserCreated as a PENDING outbox row ready for asynchronous publication. */
   @Override
   public void record(UserCreatedEvent event) {
     Objects.requireNonNull(event, "event must not be null");

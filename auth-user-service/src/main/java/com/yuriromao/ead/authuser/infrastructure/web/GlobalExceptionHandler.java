@@ -39,6 +39,7 @@ public class GlobalExceptionHandler {
           INTERNAL_ERROR,
           "Internal error.");
 
+  /** Converts Bean Validation failures into the first matching public validation error code. */
   @ExceptionHandler(MethodArgumentNotValidException.class)
   ResponseEntity<ApiErrorResponse> handleValidation(MethodArgumentNotValidException exception) {
     String code =
@@ -51,16 +52,19 @@ public class GlobalExceptionHandler {
     return error(HttpStatus.BAD_REQUEST, code);
   }
 
+  /** Handles malformed JSON or enum conversion failures in the request body. */
   @ExceptionHandler(HttpMessageNotReadableException.class)
   ResponseEntity<ApiErrorResponse> handleUnreadableRequest() {
     return error(HttpStatus.BAD_REQUEST, "USER_ROLE_INVALID");
   }
 
+  /** Maps the duplicate-email business exception to HTTP 409 Conflict. */
   @ExceptionHandler(UserEmailAlreadyExistsException.class)
   ResponseEntity<ApiErrorResponse> handleDuplicateEmail() {
     return error(HttpStatus.CONFLICT, UserEmailAlreadyExistsException.CODE);
   }
 
+  /** Provides a safe fallback response for unexpected failures. */
   @ExceptionHandler(Exception.class)
   ResponseEntity<ApiErrorResponse> handleUnexpected() {
     return error(HttpStatus.INTERNAL_SERVER_ERROR, INTERNAL_ERROR);
