@@ -67,9 +67,9 @@ O `Outbox Pattern` foi aceito porque registra o evento no mesmo banco e na mesma
 
 ## Implementation Direction
 
-A implementação deve ser feita em tarefas futuras, sem alterar a semântica pública do endpoint `POST /users`.
+A implementação no `auth-user-service` foi concluída para o fluxo `UserCreated`, sem alterar a semântica pública do endpoint `POST /users`.
 
-Direção técnica esperada:
+Direção técnica adotada:
 
 - criar a tabela `outbox_events` no banco do `auth-user-service`;
 - armazenar `id`, `aggregateType`, `aggregateId`, `eventId`, `eventType`, envelope JSONB sanitizado, status de publicação, número de tentativas, próxima tentativa, timestamps de criação/atualização/publicação e informações de erro quando houver falha;
@@ -89,7 +89,7 @@ Esta decisão não define a topologia de exchanges, queues, routing keys, retry 
 
 ## Validation
 
-Testes esperados para a implementação futura:
+Testes esperados para a implementação:
 
 - teste de migration garantindo a criação da tabela `outbox_events`;
 - teste de persistência garantindo que `UserCreated` é salvo na outbox junto com o usuário;

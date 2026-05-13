@@ -231,7 +231,7 @@ Regras:
 
 Observação:
 
-- A convenção definitiva de exchange, routing key, retry e dead-letter queue ainda não está definida em ADR. A primeira implementação deve documentar qualquer escolha operacional em plano de implementação ou ADR se a decisão afetar a arquitetura.
+- A topologia inicial de RabbitMQ, routing keys, retry e dead-letter queue é definida pelo ADR-007. Nesta entrega, o `auth-user-service` atua como producer de `UserCreated`; consumers e DLQ operacional permanecem fora de escopo.
 
 ## 9. Observabilidade mínima
 
@@ -359,5 +359,5 @@ Não há dependência funcional de `course-service` ou `notification-service` pa
 | Política de senha insuficiente pode reduzir segurança. | Definir validação mínima agora e evoluir política em FDD específico quando autenticação entrar no escopo. |
 | Erros inconsistentes podem dificultar integração de clientes. | Padronizar formato de erro desde o primeiro endpoint e cobrir com testes de contrato. |
 | Logs podem vazar dados sensíveis. | Proibir senha e hash em logs, responses e eventos; validar em revisão de código. |
-| Convenções de RabbitMQ ainda não estão formalizadas. | Manter decisão operacional mínima no plano de implementação e criar ADR se a convenção se tornar arquitetural. |
+| Consumers, retry de consumo e DLQ operacional ainda não existem. | Seguir o ADR-007 quando os consumers forem implementados e manter idempotência por `eventId`. |
 | Duplicidade de e-mail pode ocorrer em concorrência se validada apenas na aplicação. | Usar restrição única no banco além da validação na aplicação. |

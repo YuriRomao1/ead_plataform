@@ -368,7 +368,7 @@ Documentos atuais:
 
 - `docs/implementation-plans/plan-001-auth-user-service.md`
   - Quebra o FDD em tarefas pequenas.
-  - Inclui bootstrap do módulo, configuração futura de banco, migrações, domínio, endpoint, hash, evento, RabbitMQ e testes.
+  - Inclui bootstrap do módulo, configuração de banco, migrações, domínio, endpoint, hash, evento, RabbitMQ, outbox e testes.
 
 Regra de evolução:
 

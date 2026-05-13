@@ -28,7 +28,7 @@ Current implemented scope:
 - email uniqueness validation in the application and database
 - password hashing with BCrypt
 - public response without password or password hash
-- `UserCreated` event publication through RabbitMQ
+- `UserCreated` recorded in Transactional Outbox and published asynchronously through RabbitMQ
 
 Out of scope for the current implementation:
 

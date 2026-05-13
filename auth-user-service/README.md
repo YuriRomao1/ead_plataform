@@ -11,7 +11,7 @@ The current delivery implements user creation only. Authentication flows such as
 - Enforce unique email inside `auth_user_db`.
 - Store passwords only as BCrypt hashes.
 - Persist users and roles in the service-owned PostgreSQL database.
-- Publish `UserCreated` after successful user creation.
+- Record `UserCreated` in Transactional Outbox after successful user creation and publish it asynchronously through RabbitMQ.
 - Keep HTTP, persistence, security, and messaging details outside application rules.
 
 ## Local Dependencies
@@ -55,7 +55,7 @@ http://localhost:8081
 
 ### POST /users
 
-Creates a user and publishes `UserCreated` after successful persistence.
+Creates a user and records `UserCreated` in the outbox after successful persistence. The outbox publisher later publishes pending events to RabbitMQ.
 
 Request:
 
@@ -99,7 +99,7 @@ Expected errors:
 
 ### UserCreated
 
-Published after a user is created successfully.
+Recorded in the outbox after a user is created successfully and published asynchronously to RabbitMQ.
 
 Payload:
 

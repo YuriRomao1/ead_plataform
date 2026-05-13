@@ -231,7 +231,7 @@ Considerações:
 
 | Risco | Probabilidade | Impacto | Mitigação | Contingência |
 | --- | --- | --- | --- | --- |
-| Perda de evento após persistência local. | média | alto | Usar outbox transacional no produtor quando definido em ADR. | Reprocessar eventos pendentes ou com falha a partir da outbox do serviço produtor. |
+| Perda de evento após persistência local. | média | alto | Usar outbox transacional no produtor conforme ADR-006. | Reprocessar eventos pendentes ou com falha a partir da outbox do serviço produtor. |
 | Publicação duplicada por retry do producer ou falha após envio ao broker. | média | médio | Rastrear publicação por `eventId`, status da outbox e política de retry controlada. | Consumidores devem confirmar mensagens de forma idempotente. |
 | Processamento duplicado por consumers. | alta | médio | Idempotência por `eventId`. | Rotina de deduplicação. |
 | Mensagem inválida bloquear consumo. | média | alto | Validar payload e usar DLQ. | Quarentena e reprocessamento manual. |
@@ -263,7 +263,7 @@ FDDs futuros devem detalhar `EnrollmentCreated`, consumers do `notification-serv
 
 ## 18. Próximos passos técnicos
 
-- Implementar a topologia RabbitMQ definida no ADR-007.
+- Implementar consumers, bindings, retry de consumo e DLQ operacional conforme ADR-007.
 - Definir contrato versionado de `UserCreated`.
 - Definir contrato versionado de `EnrollmentCreated`.
 - Definir cenários Cucumber para fluxos assíncronos entre produtores, RabbitMQ e consumidores.
