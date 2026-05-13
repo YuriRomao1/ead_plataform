@@ -154,4 +154,4 @@ If future code evolves without updating the plan and HLDs, the documentation can
 | `3e0f518` | `docs: record transactional outbox strategy` | Registra a decisão de usar Transactional Outbox Pattern. |
 | `05cc174` | `feat: add outbox events migration` | Cria a tabela `outbox_events` e valida sua migration. |
 | `f0f7ce5` | `feat: record user created events in outbox` | Troca a publicação direta no use case por gravação transacional na outbox. |
-| `current` | `feat: publish pending outbox events` | Adiciona relay assíncrono para publicar eventos pendentes da outbox no RabbitMQ com controle de status e tentativas. |
+| `b8b75e1` | `feat: publish pending outbox events` | Adiciona relay assíncrono para publicar eventos pendentes da outbox no RabbitMQ com controle de status e tentativas. |
