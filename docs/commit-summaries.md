@@ -157,3 +157,4 @@ If future code evolves without updating the plan and HLDs, the documentation can
 | `b8b75e1` | `feat: publish pending outbox events` | Adiciona relay assíncrono para publicar eventos pendentes da outbox no RabbitMQ com controle de status e tentativas. |
 | `1f7c5ae` | `test: cover outbox event publishing` | Complementa a cobertura da outbox com proteção contra acoplamento direto ao publisher e validação real de unicidade de `event_id`. |
 | `439fef5` | `ci: add pull request workflow` | Adiciona workflow de PR com Java 25, Gradle build, verificação de testes/cobertura e upload de artifacts. |
+| `84f925d` | `docs: align HLD with implemented outbox flow` | Alinha HLDs e plano de implementação ao estado real do auth-user-service, incluindo Outbox e publisher assíncrono implementados. |
