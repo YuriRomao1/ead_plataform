@@ -44,7 +44,7 @@ O `auth-user-service` deve:
 - manter status `ACTIVE` e `BLOCKED`;
 - garantir unicidade de e-mail dentro do próprio serviço;
 - registrar `UserCreated` na outbox após criação bem-sucedida de usuário;
-- publicar eventos pendentes da outbox no RabbitMQ por relay assíncrono;
+- publicar eventos pendentes da outbox no RabbitMQ por publisher assíncrono;
 - expor APIs do contexto Auth/User;
 - prover dados de autorização para outros serviços por contrato REST futuro.
 
@@ -101,7 +101,7 @@ Dados sensíveis:
 | Interface | Tipo | Descrição | Status |
 | --- | --- | --- | --- |
 | `POST /users` | REST | Criação de usuário definida no FDD-001. | implemented |
-| `UserCreated` | Event | Evento registrado na outbox após criação bem-sucedida de usuário e publicado assincronamente por relay. | implemented |
+| `UserCreated` | Event | Evento registrado na outbox após criação bem-sucedida de usuário e publicado assincronamente por publisher. | implemented |
 | User validation API | REST | Interface futura para validação de usuário e papéis por outros serviços. | draft |
 
 ## 9. Comunicação síncrona
@@ -126,11 +126,11 @@ O serviço deve produzir eventos relacionados a usuários por meio da outbox tra
 
 Eventos implementados:
 
-- `UserCreated`, registrado na tabela `outbox_events` na mesma transação que persiste o usuário e publicado posteriormente no RabbitMQ por relay assíncrono.
+- `UserCreated`, registrado na tabela `outbox_events` na mesma transação que persiste o usuário e publicado posteriormente no RabbitMQ por publisher assíncrono.
 
 A tabela `outbox_events` pertence ao banco do `auth-user-service`. Ela guarda `id`, `aggregate_type`, `aggregate_id`, `event_type`, `event_id`, `payload` JSONB, `status`, `attempts`, `last_error`, `next_attempt_at`, `created_at`, `published_at` e `updated_at`. O `payload` JSONB armazena o envelope sanitizado do evento para preservar `occurredAt` sem expor senha ou hash.
 
-No nível arquitetural, a outbox é a fonte local de verdade para eventos pendentes de publicação. O relay assíncrono já está implementado no producer: ele busca apenas registros `PENDING` elegíveis, publica o evento no broker e atualiza o estado para `PUBLISHED` ou `FAILED` conforme o resultado das tentativas.
+No nível arquitetural, a outbox é a fonte local de verdade para eventos pendentes de publicação. O publisher assíncrono já está implementado no producer: ele busca apenas registros `PENDING` elegíveis, publica o evento no broker e atualiza o estado para `PUBLISHED` ou `FAILED` conforme o resultado das tentativas.
 
 O serviço não deve consumir eventos nesta primeira fase.
 
@@ -196,13 +196,13 @@ O `auth-user-service` deve ser validado com:
 - testes unitários para montagem de `UserCreated`;
 - testes de contrato HTTP para APIs públicas;
 - testes de persistência quando `auth_user_db` for configurado;
-- testes de integração com Cucumber para fluxos de criação de usuário de ponta a ponta;
-- testes de integração com Cucumber cobrindo registro de `UserCreated` na outbox após criação bem-sucedida;
+- testes de integração para fluxos de criação de usuário de ponta a ponta;
+- testes de integração cobrindo registro de `UserCreated` na outbox após criação bem-sucedida;
 - testes de persistência para schema, constraints e índices de `outbox_events`;
-- testes do relay assíncrono para publicação de eventos pendentes;
-- testes negativos com Cucumber para nome, e-mail, senha e papéis inválidos.
+- testes do publisher assíncrono para publicação de eventos pendentes;
+- testes negativos para nome, e-mail, senha e papéis inválidos.
 
-Cenários Cucumber devem descrever comportamento observável do serviço, não detalhes de classes ou implementação interna.
+Cenários de integração devem descrever comportamento observável do serviço, não detalhes de classes ou implementação interna.
 
 ## 14. Escalabilidade, resiliência e disponibilidade
 
@@ -220,7 +220,7 @@ O ADR-006 define outbox transacional para eventos de domínio do `auth-user-serv
 
 | Risco | Probabilidade | Impacto | Mitigação | Contingência |
 | --- | --- | --- | --- | --- |
-| Falha ao publicar `UserCreated` após salvar usuário. | média | alto | Registrar evento na outbox na mesma transação do usuário e publicar por relay assíncrono. | Reprocessar eventos pendentes ou com falha a partir da `outbox_events`. |
+| Falha ao publicar `UserCreated` após salvar usuário. | média | alto | Registrar evento na outbox na mesma transação do usuário e publicar por publisher assíncrono. | Reprocessar eventos pendentes ou com falha a partir da `outbox_events`. |
 | Cadastro público com papel `ADMIN`. | média | alto | Revisar regra antes de autenticação real. | Restringir criação de `ADMIN` a fluxo administrativo futuro. |
 | Vazamento de senha ou hash em logs/eventos. | baixa | alto | Revisão de código e testes de contrato. | Rotacionar credenciais e corrigir contrato imediatamente. |
 | BCrypt com work factor inadequado. | média | médio | Tornar configuração ajustável e testar performance. | Reduzir temporariamente o custo com justificativa operacional. |
@@ -254,6 +254,8 @@ O FDD-001 define a primeira entrega funcional: criação de usuário, validaçõ
 
 - Definir operação administrativa para reprocessar eventos `FAILED` da outbox.
 - Definir política de retenção e limpeza de registros antigos da outbox.
+- Documentar uso operacional do `auth-user-service`.
+- Restringir papéis permitidos no cadastro público antes de uso real.
+- Garantir tratamento de violação da unique constraint de e-mail como `409 Conflict`.
+- Adicionar `correlationId` aos logs HTTP e de eventos.
 - Implementar métricas específicas para eventos pendentes, publicados e com falha.
-- Implementar a topologia RabbitMQ definida no ADR-007 nos consumers futuros.
-- Criar FDD/ADR para login e tokens antes de implementar autenticação.

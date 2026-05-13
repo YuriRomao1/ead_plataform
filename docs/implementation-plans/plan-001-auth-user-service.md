@@ -22,7 +22,7 @@ Escopo da entrega:
 - usar papéis `STUDENT`, `TEACHER` e `ADMIN`;
 - usar status `ACTIVE` e `BLOCKED`;
 - registrar `UserCreated` na outbox após criação bem-sucedida;
-- publicar eventos pendentes da outbox no RabbitMQ por relay assíncrono.
+- publicar eventos pendentes da outbox no RabbitMQ por publisher assíncrono.
 
 Fora de escopo:
 
@@ -395,7 +395,7 @@ Com a aceitação do ADR-006, a direção definitiva deixa de ser publicar `User
 
 1. criar o usuário;
 2. registrar `UserCreated` na `outbox_events` na mesma transação;
-3. publicar eventos pendentes por relay assíncrono;
+3. publicar eventos pendentes por publisher assíncrono;
 4. atualizar status e tentativas de publicação na outbox.
 
 As tasks `T16` a `T19` abaixo formalizam essa fase e devem ser consideradas a referência para concluir o tópico de outbox no `auth-user-service`.
@@ -461,7 +461,7 @@ Resultado implementado:
   - preservar o contrato HTTP e o comportamento funcional de criação de usuário;
   - remover o acoplamento direto entre caso de uso transacional e publicação no broker.
 - **Fora de escopo:**
-  - criar o relay assíncrono da outbox;
+  - criar o publisher assíncrono da outbox;
   - implementar política de retry do publisher;
   - alterar exchange, routing key ou topologia do RabbitMQ;
   - implementar consumo de `UserCreated`.
@@ -499,7 +499,7 @@ Resultado implementado:
 - **ID:** T18
 - **Título:** Add outbox publisher to RabbitMQ
 - **Status:** Implementada.
-- **Objetivo:** Criar o relay assíncrono que busca eventos pendentes na `outbox_events`, publica no RabbitMQ e atualiza o estado de publicação no banco do `auth-user-service`.
+- **Objetivo:** Criar o publisher assíncrono que busca eventos pendentes na `outbox_events`, publica no RabbitMQ e atualiza o estado de publicação no banco do `auth-user-service`.
 - **Escopo:**
   - buscar apenas eventos `PENDING` com `next_attempt_at` vencido;
   - publicar o payload sanitizado do evento no RabbitMQ;
@@ -525,7 +525,7 @@ Resultado implementado:
   - falha de publicação incrementa tentativas e registra erro;
   - falha final marca o evento como `FAILED`;
   - logs de publicação incluem `eventId`, `eventType`, status e tentativa;
-  - `RabbitMqEventPublisher` é usado pelo relay, não diretamente pelo caso de uso.
+  - `RabbitMqEventPublisher` é usado pelo publisher da outbox, não diretamente pelo caso de uso.
 - **Testes esperados:**
   - teste garantindo publicação de eventos pendentes;
   - teste garantindo marcação como `PUBLISHED` após sucesso;
@@ -577,7 +577,7 @@ Resultado implementado:
 - **Testes esperados:**
   - testes unitários e de integração para registro de outbox;
   - testes de persistência para schema e constraints de `outbox_events`;
-  - testes do relay para sucesso, retry e falha final;
+  - testes do publisher para sucesso, retry e falha final;
   - testes garantindo ausência de dados sensíveis no evento publicado;
   - testes cobrindo segurança contra duplicidade por `eventId` no limite do producer.
 - **Comando de validação:**
@@ -615,7 +615,7 @@ Critérios finais:
 - `POST /users` cumpre o contrato do FDD.
 - Senha nunca é persistida, retornada, logada ou publicada em evento em texto puro.
 - `UserCreated` é registrado na outbox após criação bem-sucedida.
-- Eventos pendentes da outbox podem ser publicados por relay assíncrono com controle de status e tentativas.
+- Eventos pendentes da outbox podem ser publicados por publisher assíncrono com controle de status e tentativas.
 - O serviço acessa somente o banco do `auth-user-service`.
 
 ## Commit sugerido para este plano
