@@ -116,6 +116,40 @@ If future code evolves without updating the plan and HLDs, the documentation can
   - `docs/hlds/hld-001-auth-user-service.md`
   - `docs/hlds/hld-004-event-driven-communication.md`
 
+## 2245753 - docs: align outbox documentation details
+
+### Changelog
+Atualiza READMEs, FDD-001, ADR-006, HLD global e HLD-004 para remover linguagem desatualizada sobre Outbox e RabbitMQ.
+
+### Motivation
+Manter a documentação alinhada ao estado real do `auth-user-service`, que já registra `UserCreated` na Transactional Outbox e publica eventos pendentes de forma assíncrona.
+
+### Consequences
+Advantages:
+Reduz ambiguidade para próximas tarefas e deixa claro que ADR-007 já define a topologia inicial de mensageria.
+
+Disadvantages:
+Não remove código legado de Outbox JDBC; essa limpeza continua como tarefa técnica separada.
+
+Impact:
+Impacta somente documentação. Não altera runtime, testes, migrations ou configuração.
+
+Risks:
+Se o código legado de Outbox JDBC permanecer por muito tempo, novos contribuidores podem confundir o fluxo ativo com o fluxo antigo.
+
+### Metrics
+- Documentos não contêm mais os textos obsoletos identificados na auditoria.
+- READMEs descrevem `UserCreated` como gravado na Outbox e publicado assincronamente.
+- FDD e HLD referenciam ADR-007 como decisão existente.
+
+### Test Scenarios
+- Revisar os documentos alterados para confirmar alinhamento com o fluxo atual de Outbox.
+- Buscar termos antigos sobre RabbitMQ não formalizado, implementação futura da Outbox e publicação direta simplificada.
+
+### Evidence
+- `rg` para confirmar remoção dos textos obsoletos.
+- `git diff --check`
+
 | Commit | Mensagem | Mini resumo |
 | --- | --- | --- |
 | `8416c7c` | `first commit` | Inicia o repositório com a base inicial do projeto. |
