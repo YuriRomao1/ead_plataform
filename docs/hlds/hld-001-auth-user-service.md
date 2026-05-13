@@ -100,8 +100,8 @@ Dados sensíveis:
 
 | Interface | Tipo | Descrição | Status |
 | --- | --- | --- | --- |
-| `POST /users` | REST | Criação de usuário definida no FDD-001. | planned |
-| `UserCreated` | Event | Evento registrado na outbox após criação bem-sucedida de usuário e publicado assincronamente por relay. | planned |
+| `POST /users` | REST | Criação de usuário definida no FDD-001. | implemented |
+| `UserCreated` | Event | Evento registrado na outbox após criação bem-sucedida de usuário e publicado assincronamente por relay. | implemented |
 | User validation API | REST | Interface futura para validação de usuário e papéis por outros serviços. | draft |
 
 ## 9. Comunicação síncrona
@@ -124,13 +124,13 @@ Diretrizes:
 
 O serviço deve produzir eventos relacionados a usuários por meio da outbox transacional definida no ADR-006.
 
-Eventos planejados:
+Eventos implementados:
 
 - `UserCreated`, registrado na tabela `outbox_events` na mesma transação que persiste o usuário e publicado posteriormente no RabbitMQ por relay assíncrono.
 
 A tabela `outbox_events` pertence ao banco do `auth-user-service`. Ela guarda `id`, `aggregate_type`, `aggregate_id`, `event_type`, `event_id`, `payload` JSONB, `status`, `attempts`, `last_error`, `next_attempt_at`, `created_at`, `published_at` e `updated_at`. O `payload` JSONB armazena o envelope sanitizado do evento para preservar `occurredAt` sem expor senha ou hash.
 
-No nível arquitetural, a outbox é a fonte local de verdade para eventos pendentes de publicação. O relay deve buscar apenas registros `PENDING` elegíveis, publicar o evento no broker e atualizar o estado para `PUBLISHED` ou `FAILED` conforme o resultado das tentativas.
+No nível arquitetural, a outbox é a fonte local de verdade para eventos pendentes de publicação. O relay assíncrono já está implementado no producer: ele busca apenas registros `PENDING` elegíveis, publica o evento no broker e atualiza o estado para `PUBLISHED` ou `FAILED` conforme o resultado das tentativas.
 
 O serviço não deve consumir eventos nesta primeira fase.
 
@@ -252,8 +252,8 @@ O FDD-001 define a primeira entrega funcional: criação de usuário, validaçõ
 
 ## 18. Próximos passos técnicos
 
-- Implementar criação de usuário conforme FDD-001 e plano associado.
-- Definir migrações do banco `auth_user_db`.
-- Definir cenários Cucumber para criação de usuário, registro na outbox e publicação de evento.
-- Implementar a topologia RabbitMQ definida no ADR-007 nos consumidores.
+- Definir operação administrativa para reprocessar eventos `FAILED` da outbox.
+- Definir política de retenção e limpeza de registros antigos da outbox.
+- Implementar métricas específicas para eventos pendentes, publicados e com falha.
+- Implementar a topologia RabbitMQ definida no ADR-007 nos consumers futuros.
 - Criar FDD/ADR para login e tokens antes de implementar autenticação.

@@ -404,6 +404,7 @@ As tasks `T16` a `T19` abaixo formalizam essa fase e devem ser consideradas a re
 
 - **ID:** T16
 - **Título:** Add outbox event persistence
+- **Status:** Implementada.
 - **Objetivo:** Adicionar a persistência local dos eventos de domínio do `auth-user-service` por meio da tabela `outbox_events` e do adapter responsável por gravar a intenção de publicação dentro da transação do banco.
 - **Escopo:**
   - criar a migration da tabela `outbox_events`;
@@ -418,11 +419,11 @@ As tasks `T16` a `T19` abaixo formalizam essa fase e devem ser consideradas a re
 - **Arquivos esperados:**
   - `auth-user-service/src/main/resources/db/migration/V2__create_outbox_events_table.sql`
   - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/application/port/DomainEventRecorder.java`
-  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/persistence/OutboxEvent.java`
-  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/persistence/OutboxEventRepository.java`
-  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/persistence/OutboxDomainEventRecorder.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/outbox/OutboxEventJpaEntity.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/outbox/OutboxEventJpaRepository.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/outbox/JpaDomainEventRecorder.java`
   - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/infrastructure/persistence/OutboxMigrationTest.java`
-  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/infrastructure/persistence/OutboxDomainEventRecorderTest.java`
+  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/infrastructure/outbox/JpaDomainEventRecorderTest.java`
 - **Critérios de aceite:**
   - a tabela `outbox_events` existe no banco do `auth-user-service`;
   - a tabela possui `status` com valores `PENDING`, `PUBLISHED` e `FAILED`;
@@ -442,10 +443,17 @@ As tasks `T16` a `T19` abaixo formalizam essa fase e devem ser consideradas a re
 - **Mensagem de commit sugerida:**
   - `feat: add outbox events persistence`
 
+Resultado implementado:
+
+- A tabela `outbox_events` foi criada com constraints, índices e unicidade de `event_id`.
+- A gravação de eventos usa `JpaDomainEventRecorder`, `OutboxEventJpaEntity` e `OutboxEventJpaRepository`.
+- O payload JSONB armazena o envelope sanitizado de `UserCreated`.
+
 ### T17 - Record UserCreated event in outbox
 
 - **ID:** T17
 - **Título:** Record UserCreated event in outbox
+- **Status:** Implementada.
 - **Objetivo:** Alterar o fluxo de criação de usuário para registrar `UserCreated` na outbox, em vez de publicar o evento diretamente no RabbitMQ dentro da transação do caso de uso.
 - **Escopo:**
   - integrar `CreateUserUseCase` com `DomainEventRecorder`;
@@ -480,10 +488,17 @@ As tasks `T16` a `T19` abaixo formalizam essa fase e devem ser consideradas a re
 - **Mensagem de commit sugerida:**
   - `feat: record user created events in outbox`
 
+Resultado implementado:
+
+- `CreateUserUseCase` registra `UserCreated` por meio de `DomainEventRecorder`.
+- O caso de uso não depende diretamente do publisher RabbitMQ.
+- Testes cobrem sucesso, falhas de validação, e-mail duplicado e rollback transacional.
+
 ### T18 - Add outbox publisher to RabbitMQ
 
 - **ID:** T18
 - **Título:** Add outbox publisher to RabbitMQ
+- **Status:** Implementada.
 - **Objetivo:** Criar o relay assíncrono que busca eventos pendentes na `outbox_events`, publica no RabbitMQ e atualiza o estado de publicação no banco do `auth-user-service`.
 - **Escopo:**
   - buscar apenas eventos `PENDING` com `next_attempt_at` vencido;
@@ -497,12 +512,12 @@ As tasks `T16` a `T19` abaixo formalizam essa fase e devem ser consideradas a re
   - limpeza de registros antigos da outbox;
   - novos tipos de evento além de `UserCreated`.
 - **Arquivos esperados:**
-  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/messaging/OutboxEventRelay.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/outbox/OutboxEventPublisher.java`
   - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/messaging/RabbitMqEventPublisher.java`
-  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/persistence/JdbcOutboxEventRepository.java`
-  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/persistence/OutboxEventStatus.java`
-  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/infrastructure/messaging/OutboxEventRelayTest.java`
-  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/infrastructure/persistence/JdbcOutboxEventRepositoryTest.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/outbox/OutboxEventJpaRepository.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/outbox/OutboxEventJpaEntity.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/outbox/OutboxEventStatus.java`
+  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/infrastructure/outbox/OutboxEventPublisherTest.java`
 - **Critérios de aceite:**
   - existe um publisher assíncrono separado do caso de uso transacional;
   - apenas eventos `PENDING` elegíveis são buscados para publicação;
@@ -522,10 +537,18 @@ As tasks `T16` a `T19` abaixo formalizam essa fase e devem ser consideradas a re
 - **Mensagem de commit sugerida:**
   - `feat: publish pending outbox events`
 
+Resultado implementado:
+
+- `OutboxEventPublisher` publica eventos `PENDING` elegíveis em lotes configuráveis.
+- Sucesso atualiza status para `PUBLISHED`, preenche `publishedAt` e incrementa `attempts`.
+- Falha registra `lastError`, incrementa `attempts`, reagenda `nextAttemptAt` e marca `FAILED` ao esgotar `max-attempts`.
+- O publisher usa `RabbitMqEventPublisher` por meio da porta de publicação de eventos.
+
 ### T19 - Cover outbox event publishing
 
 - **ID:** T19
 - **Título:** Cover outbox event publishing
+- **Status:** Consolidada.
 - **Objetivo:** Consolidar a cobertura automatizada do fluxo completo de outbox do `auth-user-service`, cobrindo persistência, transação, publicação assíncrona, retry e falha final.
 - **Escopo:**
   - complementar testes de migration, persistência e integração;
@@ -540,8 +563,8 @@ As tasks `T16` a `T19` abaixo formalizam essa fase e devem ser consideradas a re
 - **Arquivos esperados:**
   - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/integration/CreateUserIntegrationTest.java`
   - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/integration/CreateUserTransactionTest.java`
-  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/infrastructure/messaging/OutboxEventRelayTest.java`
-  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/infrastructure/persistence/JdbcOutboxEventRepositoryTest.java`
+  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/infrastructure/outbox/OutboxEventPublisherTest.java`
+  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/infrastructure/outbox/JpaDomainEventRecorderTest.java`
   - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/infrastructure/persistence/OutboxMigrationTest.java`
 - **Critérios de aceite:**
   - o fluxo de outbox possui cobertura automatizada suficiente para critérios do ADR-006;
@@ -562,6 +585,18 @@ As tasks `T16` a `T19` abaixo formalizam essa fase e devem ser consideradas a re
   - `./gradlew :auth-user-service:build`
 - **Mensagem de commit sugerida:**
   - `test: cover outbox event publishing`
+
+Resultado consolidado:
+
+- A cobertura automatizada protege o registro de `UserCreated` na outbox, rollback transacional, payload sem dados sensíveis, publicação assíncrona, retry, falha final e unicidade de `event_id`.
+- O build do módulo executa testes, Spotless e verificação JaCoCo.
+
+Riscos remanescentes da outbox:
+
+- Reprocessamento manual de eventos `FAILED` ainda não foi implementado.
+- Limpeza ou arquivamento de registros antigos da outbox ainda não foi definido.
+- Idempotência dos consumers futuros ainda precisa ser implementada por serviço consumidor.
+- Métricas e dashboards específicos para eventos pendentes, publicados e com falha ainda precisam ser definidos.
 
 ## Validação final da entrega
 

@@ -35,7 +35,7 @@ Este HLD orienta decisões arquiteturais e desenho técnico de alto nível. Deta
 - Implementação de classes, pacotes ou métodos.
 - Estratégia final de autenticação, JWT e autorização distribuída.
 - Estratégia final de API Gateway.
-- Topologia final de RabbitMQ, retry e dead-letter queue.
+- Implementação de filas, retry e dead-letter queues dos consumers futuros.
 - Implementação do `course-service` e do `notification-service`.
 - Contexto futuro de pagamento.
 
@@ -86,16 +86,19 @@ Estado observado no código:
 - `build.gradle` da raiz configura plugins comuns e repositórios, sem tornar a raiz uma aplicação Spring Boot executável.
 - `auth-user-service` existe como módulo Spring Boot.
 - `auth-user-service` possui aplicação principal em `com.yuriromao.ead.authuser`.
-- `auth-user-service` possui `application.yml` com `spring.application.name: auth-user-service` e `server.port: 8081`.
+- `auth-user-service` possui `application.yml` com `spring.application.name: auth-user-service`, `server.port: 8081`, datasource PostgreSQL, RabbitMQ e propriedades do publisher da outbox.
+- `auth-user-service` implementa criação de usuário por `POST /users`.
+- `auth-user-service` possui persistência própria para usuários, papéis e eventos de outbox.
+- `auth-user-service` registra `UserCreated` na outbox transacional e publica eventos pendentes no RabbitMQ por relay assíncrono.
 - `course-service` e `notification-service` ainda não existem como módulos de código.
 
 Ausências relevantes:
 
-- Não há implementação de criação de usuário ainda.
-- Não há endpoint `POST /users` implementado ainda.
-- Não há configuração de banco no `auth-user-service` ainda.
-- Não há configuração de RabbitMQ no `auth-user-service` ainda.
-- Existe FDD e plano de implementação apenas para a primeira entrega do `auth-user-service`.
+- `course-service` ainda não existe como módulo de código.
+- `notification-service` ainda não existe como módulo de código.
+- Não há implementação de login, JWT, refresh token, bloqueio/desbloqueio ou validação distribuída de permissões.
+- Não há consumers de eventos implementados.
+- Reprocessamento manual de eventos `FAILED`, limpeza de registros antigos da outbox e métricas específicas de outbox ainda precisam de definição operacional.
 
 ## 6. Serviços iniciais
 
@@ -114,9 +117,13 @@ Responsabilidades arquiteturais:
 
 Estado atual:
 
-- módulo criado;
-- aplicação Spring Boot inicial movida para o módulo;
-- fluxo de criação de usuário ainda pendente de implementação.
+- módulo Spring Boot implementado;
+- banco PostgreSQL próprio configurado e versionado por Flyway;
+- endpoint `POST /users` implementado para criação de usuário;
+- hash de senha com BCrypt implementado;
+- evento `UserCreated` registrado na outbox transacional após criação bem-sucedida;
+- publisher assíncrono da outbox implementado para publicar eventos pendentes no RabbitMQ;
+- testes automatizados cobrem domínio, aplicação, persistência, HTTP e outbox.
 
 ### course-service
 
@@ -210,7 +217,7 @@ Diretrizes:
 - consumidores devem ser idempotentes;
 - falhas de consumo devem permitir retentativa;
 - evolução de payloads deve preservar compatibilidade sempre que possível;
-- a topologia final de exchange, routing key, retry e dead-letter queue deve ser registrada em ADR quando definida.
+- a topologia inicial de RabbitMQ, routing keys, retry e dead-letter queue é definida pelo ADR-007.
 
 ## 10. Infraestrutura local
 
@@ -326,7 +333,9 @@ Comandos atuais para o módulo existente:
 
 Riscos atuais:
 
-- falha ao publicar eventos após persistência local pode gerar inconsistência entre serviços quando o produtor ainda não usa outbox;
+- eventos `FAILED` na outbox ainda não possuem operação administrativa de reprocessamento;
+- registros antigos da outbox ainda não possuem política de retenção ou limpeza;
+- métricas específicas de outbox ainda não foram implementadas;
 - consumidores não idempotentes podem processar eventos duplicados;
 - ausência de retry e dead-letter queue pode dificultar recuperação de falhas;
 - dependência excessiva de chamadas REST do `course-service` para o `auth-user-service` pode gerar acoplamento operacional;
@@ -337,7 +346,10 @@ Riscos atuais:
 
 Mitigações esperadas:
 
-- criar ADR para publicação confiável de eventos antes de fluxos críticos;
+- manter a outbox transacional como mecanismo confiável de publicação no `auth-user-service`;
+- definir operação de reprocessamento para eventos `FAILED`;
+- definir retenção e limpeza de registros antigos da outbox;
+- introduzir métricas para eventos pendentes, publicados e com falha;
 - exigir idempotência em consumidores;
 - definir retry e dead-letter queue antes de consumidores reais;
 - manter validações síncronas apenas quando houver necessidade de resposta imediata;

@@ -94,7 +94,7 @@ Quando um producer usa outbox, a fonte local para eventos pendentes passa a ser 
 
 | Interface | Tipo | Descrição | Status |
 | --- | --- | --- | --- |
-| `UserCreated` | Event | Publicado quando usuário é criado no `auth-user-service`. | planned |
+| `UserCreated` | Event | Registrado na outbox do `auth-user-service` e publicado por relay assíncrono quando usuário é criado. | implemented |
 | `EnrollmentCreated` | Event | Publicado quando matrícula é criada no `course-service`. | planned |
 | RabbitMQ Management UI | Operational | Interface local de administração do broker em `15672`. | implemented |
 
@@ -116,7 +116,7 @@ Exemplo:
 
 Fluxos iniciais:
 
-- `auth-user-service` registra `UserCreated` na outbox e publica o evento por relay assíncrono;
+- `auth-user-service` registra `UserCreated` na outbox e publica o evento por relay assíncrono; este fluxo do producer já está implementado;
 - `course-service` publica `EnrollmentCreated`;
 - `notification-service` consome `UserCreated`;
 - `notification-service` consome `EnrollmentCreated`.
