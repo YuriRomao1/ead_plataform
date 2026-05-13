@@ -113,6 +113,51 @@ public class OutboxEventJpaEntity {
         now);
   }
 
+  public void markAsPublished(LocalDateTime publishedAt) {
+    if (publishedAt == null) {
+      throw new NullPointerException("publishedAt must not be null");
+    }
+
+    this.status = OutboxEventStatus.PUBLISHED;
+    this.attempts++;
+    this.lastError = null;
+    this.publishedAt = publishedAt;
+    this.updatedAt = publishedAt;
+  }
+
+  public void markAsFailed(
+      String errorMessage, LocalDateTime nextAttemptAt, LocalDateTime updatedAt) {
+    markAsFailed(OutboxEventStatus.PENDING, errorMessage, nextAttemptAt, updatedAt);
+  }
+
+  public void markAsFailed(
+      OutboxEventStatus status,
+      String errorMessage,
+      LocalDateTime nextAttemptAt,
+      LocalDateTime updatedAt) {
+    if (status == null) {
+      throw new NullPointerException("status must not be null");
+    }
+
+    if (status == OutboxEventStatus.PUBLISHED) {
+      throw new IllegalArgumentException("status must not be PUBLISHED for failure");
+    }
+
+    if (nextAttemptAt == null) {
+      throw new NullPointerException("nextAttemptAt must not be null");
+    }
+
+    if (updatedAt == null) {
+      throw new NullPointerException("updatedAt must not be null");
+    }
+
+    this.status = status;
+    this.attempts++;
+    this.lastError = errorMessage;
+    this.nextAttemptAt = nextAttemptAt;
+    this.updatedAt = updatedAt;
+  }
+
   public UUID getId() {
     return id;
   }

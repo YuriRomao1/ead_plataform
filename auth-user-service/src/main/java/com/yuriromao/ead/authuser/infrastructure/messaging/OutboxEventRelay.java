@@ -11,9 +11,6 @@ import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -22,11 +19,6 @@ import tools.jackson.databind.json.JsonMapper;
  * <p>The relay runs outside the user creation transaction so broker outages do not roll back
  * persisted users or lose the publication intent.
  */
-@Component
-@ConditionalOnProperty(
-    name = "auth-user-service.outbox.publisher.enabled",
-    havingValue = "true",
-    matchIfMissing = true)
 public class OutboxEventRelay {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(OutboxEventRelay.class);
@@ -55,7 +47,6 @@ public class OutboxEventRelay {
     this.retryDelay = Objects.requireNonNull(retryDelay, "retryDelay must not be null");
   }
 
-  @Scheduled(fixedDelayString = "${auth-user-service.outbox.publisher.fixed-delay:5000}")
   public void publishPendingEvents() {
     outboxEventRepository.findPendingEvents(batchSize, Instant.now()).forEach(this::publish);
   }
