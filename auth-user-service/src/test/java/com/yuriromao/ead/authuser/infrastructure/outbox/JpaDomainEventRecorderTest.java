@@ -19,6 +19,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.jdbc.Sql;
 import tools.jackson.databind.json.JsonMapper;
@@ -73,6 +74,20 @@ class JpaDomainEventRecorderTest {
   void shouldFailWhenEventIsNull() {
     assertThrows(NullPointerException.class, () -> domainEventRecorder.record(null));
     assertEquals(0, outboxEventJpaRepository.count());
+  }
+
+  @Test
+  void shouldRejectDuplicateEventId() {
+    UserCreatedEvent event = userCreatedEvent();
+    domainEventRecorder.record(event);
+    outboxEventJpaRepository.flush();
+
+    assertThrows(
+        DataIntegrityViolationException.class,
+        () -> {
+          domainEventRecorder.record(event);
+          outboxEventJpaRepository.flush();
+        });
   }
 
   @Test

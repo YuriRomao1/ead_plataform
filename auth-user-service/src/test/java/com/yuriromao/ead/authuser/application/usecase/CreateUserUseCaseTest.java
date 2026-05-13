@@ -11,11 +11,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.yuriromao.ead.authuser.application.event.UserCreatedEvent;
 import com.yuriromao.ead.authuser.application.exception.UserEmailAlreadyExistsException;
 import com.yuriromao.ead.authuser.application.port.DomainEventRecorder;
+import com.yuriromao.ead.authuser.application.port.EventPublisher;
 import com.yuriromao.ead.authuser.application.port.PasswordHasher;
 import com.yuriromao.ead.authuser.application.port.UserRepository;
 import com.yuriromao.ead.authuser.domain.model.User;
 import com.yuriromao.ead.authuser.domain.model.UserRole;
 import com.yuriromao.ead.authuser.domain.model.UserStatus;
+import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -103,6 +105,16 @@ class CreateUserUseCaseTest {
         () -> assertTrue(domainEventRecorder.recordedAfterSave),
         () -> assertNotNull(domainEventRecorder.recordedEvent.eventId()),
         () -> assertEquals("UserCreated", domainEventRecorder.recordedEvent.eventType()));
+  }
+
+  @Test
+  void shouldNotDependOnEventPublisherDirectly() {
+    boolean dependsOnEventPublisher =
+        Arrays.stream(CreateUserUseCase.class.getDeclaredFields())
+            .map(Field::getType)
+            .anyMatch(EventPublisher.class::equals);
+
+    assertFalse(dependsOnEventPublisher);
   }
 
   @Test
