@@ -674,6 +674,51 @@ Riscos remanescentes da outbox:
 - **Mensagem de commit sugerida:**
   - `fix: map duplicate email constraint to conflict`
 
+### T24 - Add request correlation id
+
+- **ID:** T24
+- **Título:** Add request correlation id
+- **Status:** Implementada.
+- **Objetivo:** Adicionar rastreabilidade operacional para requisições HTTP do `auth-user-service` usando correlation id em headers, MDC e responses de erro.
+- **Escopo:**
+  - criar um filtro HTTP por requisição;
+  - reutilizar o header `X-Correlation-Id` quando informado;
+  - gerar UUID quando o header estiver ausente;
+  - adicionar o correlation id ao MDC com chave `correlationId`;
+  - retornar `X-Correlation-Id` em toda resposta HTTP;
+  - limpar o MDC ao final da requisição;
+  - incluir `correlationId` no corpo de responses de erro;
+  - configurar o padrão de log para exibir o valor do MDC.
+- **Fora de escopo:**
+  - propagar correlation id para eventos na outbox;
+  - alterar payload de `UserCreated`;
+  - implementar tracing distribuído;
+  - criar ferramenta de métricas ou dashboard.
+- **Arquivos esperados:**
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/web/CorrelationId.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/web/CorrelationIdFilter.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/web/ApiErrorResponse.java`
+  - `auth-user-service/src/main/resources/application.yml`
+  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/infrastructure/web/UserControllerTest.java`
+- **Critérios de aceite:**
+  - requisição com `X-Correlation-Id` recebe o mesmo valor na resposta;
+  - requisição sem `X-Correlation-Id` recebe um UUID gerado na resposta;
+  - responses de erro incluem `correlationId`;
+  - o MDC é limpo depois da requisição;
+  - logs HTTP podem incluir `correlationId` pelo padrão configurado;
+  - dados sensíveis não são adicionados aos logs.
+- **Testes esperados:**
+  - teste HTTP garantindo geração de correlation id;
+  - teste HTTP garantindo reutilização do header recebido;
+  - teste HTTP garantindo `correlationId` no body de erro;
+  - teste garantindo limpeza do MDC após a requisição.
+- **Comando de validação:**
+  - `./gradlew :auth-user-service:test --tests "com.yuriromao.ead.authuser.infrastructure.web.UserControllerTest"`
+  - `./gradlew :auth-user-service:test`
+  - `./gradlew :auth-user-service:build`
+- **Mensagem de commit sugerida:**
+  - `feat: add request correlation id`
+
 ## Validação final da entrega
 
 Ao concluir todas as tasks, executar:

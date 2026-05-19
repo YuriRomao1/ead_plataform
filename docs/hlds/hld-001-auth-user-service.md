@@ -185,7 +185,8 @@ Health checks esperados:
 - PostgreSQL quando configurado;
 - RabbitMQ quando configurado.
 
-Logs de evento devem incluir `eventId`. Logs HTTP devem carregar correlation id quando essa capacidade for introduzida.
+Logs de evento devem incluir `eventId`. Logs HTTP carregam correlation id via MDC.
+O `auth-user-service` reutiliza o header `X-Correlation-Id` quando informado, gera um UUID quando ausente, propaga o valor no header de resposta e expõe `correlationId` nos responses de erro.
 
 ### Testes e validação esperados
 
@@ -255,5 +256,4 @@ O FDD-001 define a primeira entrega funcional: criação de usuário, validaçõ
 - Definir operação administrativa para reprocessar eventos `FAILED` da outbox.
 - Definir política de retenção e limpeza de registros antigos da outbox.
 - Documentar uso operacional do `auth-user-service`.
-- Adicionar `correlationId` aos logs HTTP e de eventos.
 - Implementar métricas específicas para eventos pendentes, publicados e com falha.

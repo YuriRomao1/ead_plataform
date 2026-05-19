@@ -179,6 +179,7 @@ Formato recomendado:
 {
   "code": "USER_EMAIL_ALREADY_EXISTS",
   "message": "Email already exists.",
+  "correlationId": "uuid",
   "details": []
 }
 ```
@@ -260,7 +261,10 @@ Health checks esperados:
 
 Correlação:
 
-- Quando disponível, logs de requisição e logs de evento devem carregar um identificador de correlação.
+- Requisições HTTP devem reutilizar `X-Correlation-Id` quando informado ou gerar um novo UUID quando ausente.
+- Respostas HTTP devem retornar `X-Correlation-Id`.
+- Responses de erro devem incluir `correlationId`.
+- Logs de requisição devem carregar `correlationId` via MDC.
 - Logs de evento devem incluir `eventId`.
 
 Dados sensíveis:

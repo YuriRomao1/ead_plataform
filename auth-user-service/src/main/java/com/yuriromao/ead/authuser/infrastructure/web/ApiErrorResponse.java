@@ -9,7 +9,8 @@ import java.util.Objects;
  * <p>The response exposes stable machine-readable codes and client-safe messages, never stack
  * traces or internal persistence/messaging details.
  */
-public record ApiErrorResponse(String code, String message, List<String> details) {
+public record ApiErrorResponse(
+    String code, String message, String correlationId, List<String> details) {
 
   public ApiErrorResponse {
     code = Objects.requireNonNull(code, "code must not be null");
@@ -19,6 +20,6 @@ public record ApiErrorResponse(String code, String message, List<String> details
 
   /** Creates an error response without field-level details. */
   static ApiErrorResponse of(String code, String message) {
-    return new ApiErrorResponse(code, message, List.of());
+    return new ApiErrorResponse(code, message, CorrelationId.current(), List.of());
   }
 }

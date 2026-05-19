@@ -2,6 +2,8 @@ package com.yuriromao.ead.authuser.infrastructure.web;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.times;
@@ -25,14 +27,18 @@ import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 
 @WebMvcTest(UserController.class)
+@Import(CorrelationIdFilter.class)
 class UserControllerTest {
 
   private static final UUID USER_ID = UUID.fromString("6fbe1f59-aace-4bb9-8ff6-9da5e1183f17");
@@ -50,6 +56,7 @@ class UserControllerTest {
         .perform(post("/users").contentType(MediaType.APPLICATION_JSON).content(validRequest()))
         .andExpect(status().isCreated())
         .andExpect(header().string("Location", containsString("/users/" + USER_ID)))
+        .andExpect(header().exists(CorrelationId.HEADER_NAME))
         .andExpect(jsonPath("$.id").value(USER_ID.toString()))
         .andExpect(jsonPath("$.name").value("User Name"))
         .andExpect(jsonPath("$.email").value("user@email.com"))
@@ -72,6 +79,60 @@ class UserControllerTest {
         () ->
             org.junit.jupiter.api.Assertions.assertEquals(
                 Set.of(UserRole.STUDENT), command.roles()));
+  }
+
+  @Test
+  void shouldGenerateCorrelationIdWhenRequestHeaderIsMissing() throws Exception {
+    when(createUserUseCase.execute(any(CreateUserCommand.class))).thenReturn(createdUserResult());
+
+    MvcResult result =
+        mockMvc
+            .perform(post("/users").contentType(MediaType.APPLICATION_JSON).content(validRequest()))
+            .andExpect(status().isCreated())
+            .andExpect(header().exists(CorrelationId.HEADER_NAME))
+            .andReturn();
+
+    String correlationId = result.getResponse().getHeader(CorrelationId.HEADER_NAME);
+
+    assertDoesNotThrow(() -> UUID.fromString(correlationId));
+    assertNull(MDC.get(CorrelationId.MDC_KEY));
+  }
+
+  @Test
+  void shouldGenerateCorrelationIdWhenRequestHeaderIsBlank() throws Exception {
+    when(createUserUseCase.execute(any(CreateUserCommand.class))).thenReturn(createdUserResult());
+
+    MvcResult result =
+        mockMvc
+            .perform(
+                post("/users")
+                    .header(CorrelationId.HEADER_NAME, " ")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(validRequest()))
+            .andExpect(status().isCreated())
+            .andExpect(header().exists(CorrelationId.HEADER_NAME))
+            .andReturn();
+
+    String correlationId = result.getResponse().getHeader(CorrelationId.HEADER_NAME);
+
+    assertDoesNotThrow(() -> UUID.fromString(correlationId));
+    assertNull(MDC.get(CorrelationId.MDC_KEY));
+  }
+
+  @Test
+  void shouldReuseCorrelationIdFromRequestHeader() throws Exception {
+    when(createUserUseCase.execute(any(CreateUserCommand.class))).thenReturn(createdUserResult());
+
+    mockMvc
+        .perform(
+            post("/users")
+                .header(CorrelationId.HEADER_NAME, "request-correlation-id")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(validRequest()))
+        .andExpect(status().isCreated())
+        .andExpect(header().string(CorrelationId.HEADER_NAME, "request-correlation-id"));
+
+    assertNull(MDC.get(CorrelationId.MDC_KEY));
   }
 
   @Test
@@ -214,10 +275,16 @@ class UserControllerTest {
         .thenThrow(new UserEmailAlreadyExistsException("user@email.com"));
 
     mockMvc
-        .perform(post("/users").contentType(MediaType.APPLICATION_JSON).content(validRequest()))
+        .perform(
+            post("/users")
+                .header(CorrelationId.HEADER_NAME, "duplicate-email-correlation-id")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(validRequest()))
         .andExpect(status().isConflict())
+        .andExpect(header().string(CorrelationId.HEADER_NAME, "duplicate-email-correlation-id"))
         .andExpect(jsonPath("$.code").value("USER_EMAIL_ALREADY_EXISTS"))
-        .andExpect(jsonPath("$.message").value("Email already exists."));
+        .andExpect(jsonPath("$.message").value("Email already exists."))
+        .andExpect(jsonPath("$.correlationId").value("duplicate-email-correlation-id"));
   }
 
   @Test
