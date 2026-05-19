@@ -40,6 +40,53 @@ How do we prove this change works?
 
 As entradas abaixo foram registradas antes da adoção do formato estruturado atual e são mantidas apenas como histórico resumido.
 
+## 5261d63c2128188f5935024bc1be40e27e13b5c8 - fix: map duplicate email constraint to conflict
+
+### Changelog
+Maps database duplicate-email constraint violations in `JpaUserRepository` to `UserEmailAlreadyExistsException`.
+
+Uses `saveAndFlush` so the `users.email` unique constraint is evaluated inside the persistence adapter and preserves the original database exception as the cause.
+
+Adds persistence coverage for the duplicate-email mapping and for rethrowing unrelated integrity violations.
+
+Documents T23 in the Auth/User implementation plan and removes the completed HLD next step.
+
+### Motivation
+The application-level `existsByEmail` check covers the common duplicate email path, but concurrent requests can still pass that check before either transaction commits.
+
+The database unique constraint is the final protection, so its duplicate-email violation must produce the same public `409 Conflict` contract instead of leaking as an internal error.
+
+### Consequences
+Advantages:
+Keeps the HTTP contract stable under race conditions and preserves diagnostic context by retaining the original persistence exception as the cause.
+
+Disadvantages:
+The mapping depends on the PostgreSQL-generated constraint name `users_email_key`; if the migration is renamed later, the adapter check must be updated.
+
+Impact:
+Impacts only `auth-user-service` user persistence behavior and related tests/documentation.
+
+Risks:
+Unexpected duplicate-email constraint naming changes would cause the persistence exception to be rethrown instead of mapped to `UserEmailAlreadyExistsException`.
+
+### Metrics
+- Duplicate `users.email` database violations are mapped to `UserEmailAlreadyExistsException`.
+- `UserEmailAlreadyExistsException` continues to map to HTTP `409 Conflict`.
+- Non-email integrity violations are not masked as duplicate email.
+- Module tests and build remain green.
+
+### Test Scenarios
+- Save two users with the same email through `JpaUserRepository`.
+- Verify the second save throws `UserEmailAlreadyExistsException`.
+- Verify the domain exception preserves the original cause.
+- Simulate a non-email `DataIntegrityViolationException` and verify it is rethrown.
+- Verify the existing controller test still maps duplicate email to `409 Conflict`.
+
+### Evidence
+- `.\gradlew.bat :auth-user-service:test --tests "com.yuriromao.ead.authuser.infrastructure.persistence.JpaUserRepositoryTest"`
+- `.\gradlew.bat :auth-user-service:build`
+- `git diff --check`
+
 ## 322c8714ee5476e6ca5aef971a8b2bfb0c0960ff - feat: restrict public user registration roles
 
 ### Changelog
