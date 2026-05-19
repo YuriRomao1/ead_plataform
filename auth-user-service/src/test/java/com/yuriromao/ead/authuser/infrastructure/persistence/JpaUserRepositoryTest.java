@@ -3,9 +3,14 @@ package com.yuriromao.ead.authuser.infrastructure.persistence;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import com.yuriromao.ead.authuser.application.exception.UserEmailAlreadyExistsException;
 import com.yuriromao.ead.authuser.application.port.UserRepository;
 import com.yuriromao.ead.authuser.domain.model.User;
 import com.yuriromao.ead.authuser.domain.model.UserRole;
@@ -84,13 +89,33 @@ class JpaUserRepositoryTest {
   }
 
   @Test
-  void shouldFailWhenSavingDuplicateEmail() {
+  void shouldMapDuplicateEmailConstraintViolationToBusinessException() {
     User user = createUser("duplicate-user@email.com", Set.of(UserRole.STUDENT));
     User duplicateEmailUser = createUser("duplicate-user@email.com", Set.of(UserRole.ADMIN));
     userRepository.save(user);
 
-    assertThrows(
-        DataIntegrityViolationException.class, () -> userRepository.save(duplicateEmailUser));
+    UserEmailAlreadyExistsException exception =
+        assertThrows(
+            UserEmailAlreadyExistsException.class, () -> userRepository.save(duplicateEmailUser));
+
+    assertEquals("duplicate-user@email.com", exception.getEmail());
+    assertNotNull(exception.getCause());
+  }
+
+  @Test
+  void shouldRethrowNonEmailIntegrityViolations() {
+    User user = createUser("constraint-user@email.com", Set.of(UserRole.STUDENT));
+    UserJpaRepository failingJpaRepository = mock(UserJpaRepository.class);
+    DataIntegrityViolationException integrityViolation =
+        new DataIntegrityViolationException("check constraint violation");
+    JpaUserRepository repository = new JpaUserRepository(failingJpaRepository);
+
+    when(failingJpaRepository.saveAndFlush(any(UserJpaEntity.class))).thenThrow(integrityViolation);
+
+    DataIntegrityViolationException exception =
+        assertThrows(DataIntegrityViolationException.class, () -> repository.save(user));
+
+    assertSame(integrityViolation, exception);
   }
 
   private UserJpaEntity findPersistedUser(User user) {

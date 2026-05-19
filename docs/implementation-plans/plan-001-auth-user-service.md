@@ -638,6 +638,42 @@ Riscos remanescentes da outbox:
 - **Mensagem de commit sugerida:**
   - `feat: restrict public user registration roles`
 
+### T23 - Map database email unique constraint to 409
+
+- **ID:** T23
+- **Título:** Map database email unique constraint to 409
+- **Status:** Implementada.
+- **Objetivo:** Garantir que a constraint única de `users.email` continue sendo a proteção final contra duplicidade em cenários concorrentes e que sua violação seja traduzida para erro de domínio `USER_EMAIL_ALREADY_EXISTS`.
+- **Escopo:**
+  - forçar a validação da constraint dentro do adapter JPA de usuários;
+  - traduzir violação de unicidade de e-mail para `UserEmailAlreadyExistsException`;
+  - preservar o mapeamento HTTP existente para `409 Conflict`;
+  - cobrir o comportamento com teste de persistência.
+- **Fora de escopo:**
+  - alterar a migration de usuários;
+  - remover a verificação preventiva `existsByEmail`;
+  - implementar controle de concorrência distribuído;
+  - alterar o contrato público de erro.
+- **Arquivos esperados:**
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/persistence/JpaUserRepository.java`
+  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/infrastructure/persistence/JpaUserRepositoryTest.java`
+- **Critérios de aceite:**
+  - `JpaUserRepository.save` usa uma operação que força a constraint única a ser avaliada dentro do método;
+  - violação de unicidade em `users.email` lança `UserEmailAlreadyExistsException`;
+  - `GlobalExceptionHandler` continua convertendo `UserEmailAlreadyExistsException` em `409 Conflict`;
+  - a exceção de infraestrutura não vaza como `500 Internal Server Error` para duplicidade de e-mail;
+  - o serviço continua usando somente o banco do `auth-user-service`.
+- **Testes esperados:**
+  - teste de persistência garantindo que salvar usuário com e-mail duplicado lança `UserEmailAlreadyExistsException`;
+  - teste HTTP existente garantindo que `UserEmailAlreadyExistsException` retorna `409 Conflict`.
+- **Comando de validação:**
+  - `./gradlew :auth-user-service:test --tests "com.yuriromao.ead.authuser.infrastructure.persistence.JpaUserRepositoryTest"`
+  - `./gradlew :auth-user-service:test --tests "com.yuriromao.ead.authuser.infrastructure.web.UserControllerTest"`
+  - `./gradlew :auth-user-service:test`
+  - `./gradlew :auth-user-service:build`
+- **Mensagem de commit sugerida:**
+  - `fix: map duplicate email constraint to conflict`
+
 ## Validação final da entrega
 
 Ao concluir todas as tasks, executar:

@@ -255,6 +255,5 @@ O FDD-001 define a primeira entrega funcional: criação de usuário, validaçõ
 - Definir operação administrativa para reprocessar eventos `FAILED` da outbox.
 - Definir política de retenção e limpeza de registros antigos da outbox.
 - Documentar uso operacional do `auth-user-service`.
-- Garantir tratamento de violação da unique constraint de e-mail como `409 Conflict`.
 - Adicionar `correlationId` aos logs HTTP e de eventos.
 - Implementar métricas específicas para eventos pendentes, publicados e com falha.

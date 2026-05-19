@@ -13,7 +13,11 @@ public class UserEmailAlreadyExistsException extends RuntimeException {
   private final String email;
 
   public UserEmailAlreadyExistsException(String email) {
-    super("Email already exists.");
+    this(email, null);
+  }
+
+  public UserEmailAlreadyExistsException(String email, Throwable cause) {
+    super("Email already exists.", cause);
     this.email = Objects.requireNonNull(email, "email must not be null");
   }
 

@@ -1,8 +1,11 @@
 package com.yuriromao.ead.authuser.infrastructure.persistence;
 
+import com.yuriromao.ead.authuser.application.exception.UserEmailAlreadyExistsException;
 import com.yuriromao.ead.authuser.application.port.UserRepository;
 import com.yuriromao.ead.authuser.domain.model.User;
+import java.util.Locale;
 import java.util.Objects;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -14,6 +17,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class JpaUserRepository implements UserRepository {
 
+  private static final String EMAIL_UNIQUE_CONSTRAINT = "users_email_key";
+
   private final UserJpaRepository userJpaRepository;
 
   public JpaUserRepository(UserJpaRepository userJpaRepository) {
@@ -24,7 +29,17 @@ public class JpaUserRepository implements UserRepository {
   @Override
   public User save(User user) {
     Objects.requireNonNull(user, "user must not be null");
-    userJpaRepository.save(UserJpaEntity.fromDomain(user));
+
+    try {
+      userJpaRepository.saveAndFlush(UserJpaEntity.fromDomain(user));
+    } catch (DataIntegrityViolationException exception) {
+      if (isEmailUniqueConstraintViolation(exception)) {
+        throw new UserEmailAlreadyExistsException(user.getEmail(), exception);
+      }
+
+      throw exception;
+    }
+
     return user;
   }
 
@@ -33,5 +48,14 @@ public class JpaUserRepository implements UserRepository {
   public boolean existsByEmail(String email) {
     Objects.requireNonNull(email, "email must not be null");
     return userJpaRepository.existsByEmail(email);
+  }
+
+  private static boolean isEmailUniqueConstraintViolation(
+      DataIntegrityViolationException exception) {
+    String message =
+        Objects.toString(exception.getMostSpecificCause().getMessage(), "")
+            .toLowerCase(Locale.ROOT);
+
+    return message.contains(EMAIL_UNIQUE_CONSTRAINT);
   }
 }
