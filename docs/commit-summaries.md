@@ -40,6 +40,56 @@ How do we prove this change works?
 
 As entradas abaixo foram registradas antes da adoção do formato estruturado atual e são mantidas apenas como histórico resumido.
 
+## 9cdc1fafa133db095ebbb217590a9361d79ee31a - feat: add request correlation id
+
+### Changelog
+Adds HTTP request correlation id support to `auth-user-service`.
+
+Introduces `CorrelationId` and `CorrelationIdFilter` to reuse incoming `X-Correlation-Id` values, generate UUIDs when absent, write the value to MDC, return it in response headers, and clean MDC after each request.
+
+Extends error responses with `correlationId` and configures logging to include the MDC value.
+
+Updates controller tests and Auth/User documentation for the new correlation behavior.
+
+### Motivation
+Operational troubleshooting needs a stable identifier that ties HTTP responses, application logs, and error bodies together.
+
+This change implements the observability requirement already described in the HLD and prepares the service for future cross-service tracing.
+
+### Consequences
+Advantages:
+Improves request traceability and makes error responses easier to correlate with logs without exposing sensitive data.
+
+Disadvantages:
+The public error response shape changes by adding `correlationId`, so clients parsing the full body must tolerate the new field.
+
+Impact:
+Impacts only HTTP request/response behavior, log formatting, and documentation in `auth-user-service`.
+
+Risks:
+Correlation id is currently limited to HTTP logs and error responses; event payload propagation remains out of scope for this task.
+
+### Metrics
+- Responses include `X-Correlation-Id`.
+- Requests with `X-Correlation-Id` receive the same value back.
+- Requests without `X-Correlation-Id` receive a generated UUID.
+- Error bodies include `correlationId`.
+- MDC is cleared after each request.
+- Module tests and build remain green.
+
+### Test Scenarios
+- Create a user without `X-Correlation-Id` and verify a UUID response header.
+- Create a user with `X-Correlation-Id` and verify the same value is returned.
+- Create a user with blank `X-Correlation-Id` and verify a UUID is generated.
+- Trigger duplicate email handling and verify `correlationId` appears in the error body.
+- Verify MDC is cleared after request processing.
+
+### Evidence
+- `.\gradlew.bat :auth-user-service:test --tests "com.yuriromao.ead.authuser.infrastructure.web.UserControllerTest"`
+- `.\gradlew.bat :auth-user-service:test`
+- `.\gradlew.bat :auth-user-service:build`
+- `git diff --check`
+
 ## 5261d63c2128188f5935024bc1be40e27e13b5c8 - fix: map duplicate email constraint to conflict
 
 ### Changelog
