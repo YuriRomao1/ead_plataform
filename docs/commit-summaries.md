@@ -40,6 +40,53 @@ How do we prove this change works?
 
 As entradas abaixo foram registradas antes da adoção do formato estruturado atual e são mantidas apenas como histórico resumido.
 
+## 322c8714ee5476e6ca5aef971a8b2bfb0c0960ff - feat: restrict public user registration roles
+
+### Changelog
+Restricts public `POST /users` registration to the `STUDENT` role only.
+
+Adds a dedicated business exception for non-public roles, maps it to HTTP `400 Bad Request` with code `USER_ROLE_NOT_ALLOWED_FOR_PUBLIC_REGISTRATION`, and updates application and controller tests.
+
+Updates the Auth/User FDD, HLDs, implementation plan, and service README to reflect the implemented public-registration rule.
+
+### Motivation
+Public registration must not allow users to self-assign elevated roles such as `TEACHER` or `ADMIN`.
+
+The change aligns the implementation with the documented Auth/User scope and keeps elevated-role creation reserved for a future protected administrative flow.
+
+### Consequences
+Advantages:
+Reduces authorization risk in the public user creation endpoint and makes the current role policy explicit in code, tests, and documentation.
+
+Disadvantages:
+There is still no administrative endpoint for creating `TEACHER` or `ADMIN` users, so those roles remain domain values without a supported creation flow.
+
+Impact:
+Impacts only `auth-user-service` public registration behavior and related documentation.
+
+Risks:
+Existing clients that attempted to create non-`STUDENT` users through `POST /users` now receive `400 Bad Request`.
+
+### Metrics
+- `POST /users` accepts requests with only `STUDENT`.
+- `POST /users` rejects `TEACHER`, `ADMIN`, and mixed role sets containing non-public roles.
+- Role rejection does not persist a user.
+- Role rejection does not record a `UserCreated` outbox event.
+- Module tests and build remain green.
+
+### Test Scenarios
+- Create a user with `STUDENT`.
+- Reject public registration with `TEACHER`.
+- Reject public registration with `ADMIN`.
+- Reject public registration with multiple roles when any role is not allowed.
+- Verify HTTP error code `USER_ROLE_NOT_ALLOWED_FOR_PUBLIC_REGISTRATION`.
+- Verify invalid-role flows do not save a user or record an outbox event.
+
+### Evidence
+- `.\gradlew.bat :auth-user-service:test`
+- `.\gradlew.bat :auth-user-service:build`
+- `git diff --check`
+
 ## 955b251 - feat: add outbox event persistence
 
 ### Changelog
