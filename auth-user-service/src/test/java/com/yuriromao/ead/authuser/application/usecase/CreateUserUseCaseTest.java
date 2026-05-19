@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.yuriromao.ead.authuser.application.event.UserCreatedEvent;
 import com.yuriromao.ead.authuser.application.exception.UserEmailAlreadyExistsException;
+import com.yuriromao.ead.authuser.application.exception.UserRoleNotAllowedForPublicRegistrationException;
 import com.yuriromao.ead.authuser.application.port.DomainEventRecorder;
 import com.yuriromao.ead.authuser.application.port.EventPublisher;
 import com.yuriromao.ead.authuser.application.port.PasswordHasher;
@@ -61,6 +62,22 @@ class CreateUserUseCaseTest {
         () -> assertEquals(0, passwordHasher.hashCalls),
         () -> assertFalse(userRepository.saved),
         () -> assertFalse(domainEventRecorder.recorded));
+  }
+
+  @Test
+  void shouldRejectTeacherRoleForPublicRegistration() {
+    assertRoleNotAllowedForPublicRegistration(Set.of(UserRole.TEACHER));
+  }
+
+  @Test
+  void shouldRejectAdminRoleForPublicRegistration() {
+    assertRoleNotAllowedForPublicRegistration(Set.of(UserRole.ADMIN));
+  }
+
+  @Test
+  void shouldRejectMultipleRolesWhenAnyRoleIsNotAllowedForPublicRegistration() {
+    assertRoleNotAllowedForPublicRegistration(Set.of(UserRole.STUDENT, UserRole.TEACHER));
+    assertRoleNotAllowedForPublicRegistration(Set.of(UserRole.STUDENT, UserRole.ADMIN));
   }
 
   @Test
@@ -188,6 +205,24 @@ class CreateUserUseCaseTest {
 
   private CreateUserCommand validCommand() {
     return new CreateUserCommand(NAME, EMAIL, PASSWORD, Set.of(UserRole.STUDENT));
+  }
+
+  private void assertRoleNotAllowedForPublicRegistration(Set<UserRole> roles) {
+    CreateUserCommand command = new CreateUserCommand(NAME, EMAIL, PASSWORD, roles);
+
+    assertThrows(
+        UserRoleNotAllowedForPublicRegistrationException.class,
+        () -> createUserUseCase.execute(command));
+
+    assertAll(
+        () ->
+            assertEquals(
+                "USER_ROLE_NOT_ALLOWED_FOR_PUBLIC_REGISTRATION",
+                UserRoleNotAllowedForPublicRegistrationException.CODE),
+        () -> assertEquals(0, userRepository.existsByEmailCalls),
+        () -> assertEquals(0, passwordHasher.hashCalls),
+        () -> assertFalse(userRepository.saved),
+        () -> assertFalse(domainEventRecorder.recorded));
   }
 
   private static final class FakeUserRepository implements UserRepository {

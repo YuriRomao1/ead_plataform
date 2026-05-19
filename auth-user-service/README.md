@@ -57,6 +57,8 @@ http://localhost:8081
 
 Creates a user and records `UserCreated` in the outbox after successful persistence. The outbox publisher later publishes pending events to RabbitMQ.
 
+Public registration only accepts the `STUDENT` role. `TEACHER` and `ADMIN` must be created by a future protected administrative flow.
+
 Request:
 
 ```json
@@ -93,6 +95,7 @@ Expected errors:
 | `400` | `USER_PASSWORD_REQUIRED` |
 | `400` | `USER_ROLE_REQUIRED` |
 | `400` | `USER_ROLE_INVALID` |
+| `400` | `USER_ROLE_NOT_ALLOWED_FOR_PUBLIC_REGISTRATION` |
 | `409` | `USER_EMAIL_ALREADY_EXISTS` |
 
 ## Events

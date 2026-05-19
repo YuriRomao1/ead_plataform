@@ -598,6 +598,46 @@ Riscos remanescentes da outbox:
 - Idempotência dos consumers futuros ainda precisa ser implementada por serviço consumidor.
 - Métricas e dashboards específicos para eventos pendentes, publicados e com falha ainda precisam ser definidos.
 
+### T22 - Restrict public user registration roles
+
+- **ID:** T22
+- **Título:** Restrict public user registration roles
+- **Status:** Implementada.
+- **Objetivo:** Restringir o endpoint público `POST /users` para aceitar somente o papel `STUDENT`, mantendo `TEACHER` e `ADMIN` para fluxos administrativos protegidos futuros.
+- **Escopo:**
+  - validar papéis permitidos na camada de aplicação;
+  - rejeitar `TEACHER`, `ADMIN` ou múltiplos papéis contendo valores não permitidos;
+  - retornar erro HTTP `400 Bad Request` com código `USER_ROLE_NOT_ALLOWED_FOR_PUBLIC_REGISTRATION`;
+  - garantir que usuário e evento de outbox não sejam gravados quando o papel não for permitido.
+- **Fora de escopo:**
+  - implementar login, JWT ou autorização;
+  - criar endpoint administrativo;
+  - alterar Outbox, RabbitMQ ou migrations.
+- **Arquivos esperados:**
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/application/usecase/CreateUserUseCase.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/application/exception/UserRoleNotAllowedForPublicRegistrationException.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/web/GlobalExceptionHandler.java`
+  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/application/usecase/CreateUserUseCaseTest.java`
+  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/infrastructure/web/UserControllerTest.java`
+- **Critérios de aceite:**
+  - `POST /users` cria usuário com `STUDENT`;
+  - `POST /users` rejeita `TEACHER`;
+  - `POST /users` rejeita `ADMIN`;
+  - múltiplos papéis são rejeitados quando qualquer papel não for permitido;
+  - falha de papel não permitido não salva usuário;
+  - falha de papel não permitido não grava evento na outbox.
+- **Testes esperados:**
+  - teste de aplicação para criação com `STUDENT`;
+  - testes de aplicação rejeitando `TEACHER`, `ADMIN` e múltiplos papéis não permitidos;
+  - testes HTTP garantindo `400 Bad Request` e código `USER_ROLE_NOT_ALLOWED_FOR_PUBLIC_REGISTRATION`.
+- **Comando de validação:**
+  - `./gradlew :auth-user-service:test --tests "com.yuriromao.ead.authuser.application.usecase.CreateUserUseCaseTest"`
+  - `./gradlew :auth-user-service:test --tests "com.yuriromao.ead.authuser.infrastructure.web.UserControllerTest"`
+  - `./gradlew :auth-user-service:test`
+  - `./gradlew :auth-user-service:build`
+- **Mensagem de commit sugerida:**
+  - `feat: restrict public user registration roles`
+
 ## Validação final da entrega
 
 Ao concluir todas as tasks, executar:

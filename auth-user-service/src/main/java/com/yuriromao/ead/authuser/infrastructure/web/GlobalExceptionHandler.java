@@ -1,6 +1,7 @@
 package com.yuriromao.ead.authuser.infrastructure.web;
 
 import com.yuriromao.ead.authuser.application.exception.UserEmailAlreadyExistsException;
+import com.yuriromao.ead.authuser.application.exception.UserRoleNotAllowedForPublicRegistrationException;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -34,6 +35,8 @@ public class GlobalExceptionHandler {
           "At least one role is required.",
           "USER_ROLE_INVALID",
           "Role is invalid.",
+          UserRoleNotAllowedForPublicRegistrationException.CODE,
+          "Role is not allowed for public registration.",
           UserEmailAlreadyExistsException.CODE,
           "Email already exists.",
           INTERNAL_ERROR,
@@ -62,6 +65,12 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(UserEmailAlreadyExistsException.class)
   ResponseEntity<ApiErrorResponse> handleDuplicateEmail() {
     return error(HttpStatus.CONFLICT, UserEmailAlreadyExistsException.CODE);
+  }
+
+  /** Maps non-STUDENT public registration requests to HTTP 400 Bad Request. */
+  @ExceptionHandler(UserRoleNotAllowedForPublicRegistrationException.class)
+  ResponseEntity<ApiErrorResponse> handleRoleNotAllowedForPublicRegistration() {
+    return error(HttpStatus.BAD_REQUEST, UserRoleNotAllowedForPublicRegistrationException.CODE);
   }
 
   /** Provides a safe fallback response for unexpected failures. */

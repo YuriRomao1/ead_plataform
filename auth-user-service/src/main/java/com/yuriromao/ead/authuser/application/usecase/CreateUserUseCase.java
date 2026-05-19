@@ -3,11 +3,14 @@ package com.yuriromao.ead.authuser.application.usecase;
 import com.yuriromao.ead.authuser.application.event.UserCreatedEvent;
 import com.yuriromao.ead.authuser.application.event.UserCreatedEventFactory;
 import com.yuriromao.ead.authuser.application.exception.UserEmailAlreadyExistsException;
+import com.yuriromao.ead.authuser.application.exception.UserRoleNotAllowedForPublicRegistrationException;
 import com.yuriromao.ead.authuser.application.port.DomainEventRecorder;
 import com.yuriromao.ead.authuser.application.port.PasswordHasher;
 import com.yuriromao.ead.authuser.application.port.UserRepository;
 import com.yuriromao.ead.authuser.domain.model.User;
+import com.yuriromao.ead.authuser.domain.model.UserRole;
 import java.util.Objects;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -23,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CreateUserUseCase {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(CreateUserUseCase.class);
+  private static final Set<UserRole> PUBLIC_REGISTRATION_ROLES = Set.of(UserRole.STUDENT);
 
   private final UserRepository userRepository;
   private final PasswordHasher passwordHasher;
@@ -47,6 +51,10 @@ public class CreateUserUseCase {
   @Transactional
   public CreateUserResult execute(CreateUserCommand command) {
     Objects.requireNonNull(command, "command must not be null");
+
+    if (!PUBLIC_REGISTRATION_ROLES.containsAll(command.roles())) {
+      throw new UserRoleNotAllowedForPublicRegistrationException();
+    }
 
     if (userRepository.existsByEmail(command.email())) {
       throw new UserEmailAlreadyExistsException(command.email());

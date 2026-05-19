@@ -340,7 +340,7 @@ Riscos atuais:
 - ausência de retry e dead-letter queue pode dificultar recuperação de falhas;
 - dependência excessiva de chamadas REST do `course-service` para o `auth-user-service` pode gerar acoplamento operacional;
 - ausência de estratégia de autenticação pode atrasar fluxos protegidos;
-- permitir papéis sensíveis em cadastro público exigirá revisão antes de uso real;
+- papéis sensíveis exigem fluxo administrativo protegido e não devem ser aceitos no cadastro público;
 - crescimento de contratos REST e eventos sem versionamento pode gerar quebra de compatibilidade;
 - falta de correlação distribuída pode dificultar diagnóstico em fluxos entre serviços.
 
@@ -353,7 +353,7 @@ Mitigações esperadas:
 - exigir idempotência em consumidores;
 - definir retry e dead-letter queue antes de consumidores reais;
 - manter validações síncronas apenas quando houver necessidade de resposta imediata;
-- documentar autenticação em FDD/ADR próprios;
+- documentar autenticação e fluxos administrativos de papéis elevados em FDD/ADR próprios;
 - incluir correlação e logs estruturados desde as primeiras integrações.
 
 ## 16. Relação com FDDs e planos de implementação

@@ -164,7 +164,7 @@ Diretrizes:
 - senhas devem ser tratadas como dado sensível;
 - BCrypt é a estratégia inicial de hash;
 - o endpoint de criação de usuário pode ser público na primeira entrega, conforme FDD-001;
-- criação pública de usuários com papel `ADMIN` é risco conhecido e deve ser revisada antes de uso real;
+- o cadastro público deve aceitar apenas `STUDENT`; criação de `TEACHER` ou `ADMIN` deve depender de fluxo administrativo protegido futuro;
 - login, JWT e refresh token exigem FDD e ADR próprios;
 - logs não devem conter senha nem hash.
 
@@ -221,7 +221,7 @@ O ADR-006 define outbox transacional para eventos de domínio do `auth-user-serv
 | Risco | Probabilidade | Impacto | Mitigação | Contingência |
 | --- | --- | --- | --- | --- |
 | Falha ao publicar `UserCreated` após salvar usuário. | média | alto | Registrar evento na outbox na mesma transação do usuário e publicar por publisher assíncrono. | Reprocessar eventos pendentes ou com falha a partir da `outbox_events`. |
-| Cadastro público com papel `ADMIN`. | média | alto | Revisar regra antes de autenticação real. | Restringir criação de `ADMIN` a fluxo administrativo futuro. |
+| Criação indevida de `TEACHER` ou `ADMIN` por cadastro público. | baixa | alto | Restringir `POST /users` público para aceitar apenas `STUDENT`. | Criar fluxo administrativo protegido para papéis elevados. |
 | Vazamento de senha ou hash em logs/eventos. | baixa | alto | Revisão de código e testes de contrato. | Rotacionar credenciais e corrigir contrato imediatamente. |
 | BCrypt com work factor inadequado. | média | médio | Tornar configuração ajustável e testar performance. | Reduzir temporariamente o custo com justificativa operacional. |
 
@@ -255,7 +255,6 @@ O FDD-001 define a primeira entrega funcional: criação de usuário, validaçõ
 - Definir operação administrativa para reprocessar eventos `FAILED` da outbox.
 - Definir política de retenção e limpeza de registros antigos da outbox.
 - Documentar uso operacional do `auth-user-service`.
-- Restringir papéis permitidos no cadastro público antes de uso real.
 - Garantir tratamento de violação da unique constraint de e-mail como `409 Conflict`.
 - Adicionar `correlationId` aos logs HTTP e de eventos.
 - Implementar métricas específicas para eventos pendentes, publicados e com falha.

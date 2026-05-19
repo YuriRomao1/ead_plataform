@@ -21,6 +21,7 @@ Essa entrega também inicia a comunicação assíncrona da plataforma com o regi
 - Garantir unicidade de e-mail dentro do banco do `auth-user-service`.
 - Persistir senha somente como hash.
 - Representar papéis com os valores `STUDENT`, `TEACHER` e `ADMIN`.
+- Restringir o cadastro público `POST /users` para aceitar somente `STUDENT`.
 - Representar status de usuário com os valores `ACTIVE` e `BLOCKED`.
 - Criar usuários inicialmente com status `ACTIVE`.
 - Registrar o evento `UserCreated` na outbox após a criação do usuário.
@@ -37,12 +38,13 @@ Essa entrega também inicia a comunicação assíncrona da plataforma com o regi
 - Validação de nome obrigatório.
 - Validação de e-mail obrigatório e em formato válido.
 - Validação de senha obrigatória.
-- Validação de papéis permitidos.
+- Validação de papéis permitidos no cadastro público.
 - Exigência de ao menos um papel.
 - Garantia de e-mail único.
 - Hash de senha antes da persistência.
 - Persistência de usuário no banco próprio do `auth-user-service`.
-- Uso dos papéis `STUDENT`, `TEACHER` e `ADMIN`.
+- Uso dos papéis `STUDENT`, `TEACHER` e `ADMIN` no domínio.
+- Cadastro público restrito ao papel `STUDENT`.
 - Uso dos status `ACTIVE` e `BLOCKED`.
 - Status inicial `ACTIVE`.
 - Registro do evento `UserCreated` na outbox.
@@ -144,7 +146,9 @@ Regras:
 - `email` é obrigatório, não pode ser vazio e deve ter formato válido.
 - `password` é obrigatória e não pode ser vazia.
 - `roles` é obrigatório e deve conter ao menos um item.
-- Cada papel deve ser um dos valores: `STUDENT`, `TEACHER` ou `ADMIN`.
+- Cada papel deve ser um dos valores conhecidos pelo domínio: `STUDENT`, `TEACHER` ou `ADMIN`.
+- No endpoint público `POST /users`, somente `STUDENT` é permitido.
+- Requests contendo `TEACHER` ou `ADMIN` devem retornar `400 Bad Request` com código `USER_ROLE_NOT_ALLOWED_FOR_PUBLIC_REGISTRATION`.
 
 ### Response de sucesso
 
@@ -189,6 +193,7 @@ Erros:
 | Senha ausente ou vazia | 400 | `USER_PASSWORD_REQUIRED` |
 | Papéis ausentes ou vazios | 400 | `USER_ROLE_REQUIRED` |
 | Papel inválido | 400 | `USER_ROLE_INVALID` |
+| Papel não permitido no cadastro público | 400 | `USER_ROLE_NOT_ALLOWED_FOR_PUBLIC_REGISTRATION` |
 | E-mail já cadastrado | 409 | `USER_EMAIL_ALREADY_EXISTS` |
 | Falha inesperada | 500 | `INTERNAL_ERROR` |
 
@@ -300,7 +305,8 @@ Não há dependência funcional de `course-service` ou `notification-service` pa
 - Senha é persistida somente como hash.
 - A resposta HTTP não expõe senha nem hash.
 - Usuários são criados com status `ACTIVE`.
-- Os papéis `STUDENT`, `TEACHER` e `ADMIN` são aceitos.
+- O cadastro público aceita somente o papel `STUDENT`.
+- Requests com `TEACHER` ou `ADMIN` são rejeitados com `400 Bad Request`.
 - O status `BLOCKED` existe no modelo para uso futuro, mas não há fluxo de bloqueio nesta entrega.
 - `UserCreated` é registrado na outbox após criação bem-sucedida.
 - Eventos pendentes da outbox podem ser publicados pelo relay assíncrono.
@@ -320,7 +326,10 @@ Não há dependência funcional de `course-service` ou `notification-service` pa
 - Deve rejeitar senha ausente ou vazia.
 - Deve rejeitar papéis ausentes ou vazios.
 - Deve rejeitar papel inválido.
-- Deve aceitar `STUDENT`, `TEACHER` e `ADMIN`.
+- Deve aceitar `STUDENT` no cadastro público.
+- Deve rejeitar `TEACHER` no cadastro público.
+- Deve rejeitar `ADMIN` no cadastro público.
+- Deve rejeitar múltiplos papéis quando qualquer papel não for permitido no cadastro público.
 - Deve gerar hash de senha antes da persistência.
 - Deve impedir exposição de senha e hash na resposta.
 
@@ -355,7 +364,7 @@ Não há dependência funcional de `course-service` ou `notification-service` pa
 | Risco | Mitigação |
 | --- | --- |
 | Falha ao publicar `UserCreated` após persistir o usuário pode gerar inconsistência. | Registrar `UserCreated` na outbox na mesma transação do usuário e publicar posteriormente por relay assíncrono. |
-| Cadastro público permitindo papel `ADMIN` pode ser inseguro em produção. | Aceitar nesta entrega de aprendizado, mas registrar como ponto para revisão antes de autenticação real. |
+| Cadastro público permitindo papel `TEACHER` ou `ADMIN` pode ser inseguro em produção. | Restringir `POST /users` público para aceitar somente `STUDENT` e definir fluxo administrativo protegido em FDD futuro. |
 | Política de senha insuficiente pode reduzir segurança. | Definir validação mínima agora e evoluir política em FDD específico quando autenticação entrar no escopo. |
 | Erros inconsistentes podem dificultar integração de clientes. | Padronizar formato de erro desde o primeiro endpoint e cobrir com testes de contrato. |
 | Logs podem vazar dados sensíveis. | Proibir senha e hash em logs, responses e eventos; validar em revisão de código. |

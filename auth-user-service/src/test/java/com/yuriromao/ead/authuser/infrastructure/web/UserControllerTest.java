@@ -3,6 +3,8 @@ package com.yuriromao.ead.authuser.infrastructure.web;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -12,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.yuriromao.ead.authuser.application.exception.UserEmailAlreadyExistsException;
+import com.yuriromao.ead.authuser.application.exception.UserRoleNotAllowedForPublicRegistrationException;
 import com.yuriromao.ead.authuser.application.usecase.CreateUserCommand;
 import com.yuriromao.ead.authuser.application.usecase.CreateUserResult;
 import com.yuriromao.ead.authuser.application.usecase.CreateUserUseCase;
@@ -178,6 +181,34 @@ class UserControllerTest {
   }
 
   @Test
+  void shouldRejectTeacherRoleForPublicRegistration() throws Exception {
+    assertRoleNotAllowedForPublicRegistration(
+        """
+				["TEACHER"]
+				""");
+  }
+
+  @Test
+  void shouldRejectAdminRoleForPublicRegistration() throws Exception {
+    assertRoleNotAllowedForPublicRegistration(
+        """
+				["ADMIN"]
+				""");
+  }
+
+  @Test
+  void shouldRejectMultipleRolesWhenAnyRoleIsNotAllowedForPublicRegistration() throws Exception {
+    assertRoleNotAllowedForPublicRegistration(
+        """
+				["STUDENT", "TEACHER"]
+				""");
+    assertRoleNotAllowedForPublicRegistration(
+        """
+				["STUDENT", "ADMIN"]
+				""");
+  }
+
+  @Test
   void shouldRejectDuplicateEmail() throws Exception {
     when(createUserUseCase.execute(any(CreateUserCommand.class)))
         .thenThrow(new UserEmailAlreadyExistsException("user@email.com"));
@@ -210,6 +241,32 @@ class UserControllerTest {
 				  "roles": ["STUDENT"]
 				}
 				""";
+  }
+
+  private void assertRoleNotAllowedForPublicRegistration(String rolesJson) throws Exception {
+    when(createUserUseCase.execute(any(CreateUserCommand.class)))
+        .thenThrow(new UserRoleNotAllowedForPublicRegistrationException());
+
+    mockMvc
+        .perform(
+            post("/users")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+								{
+								  "name": "User Name",
+								  "email": "user@email.com",
+								  "password": "plainPassword",
+								  "roles": %s
+								}
+								"""
+                        .formatted(rolesJson)))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("USER_ROLE_NOT_ALLOWED_FOR_PUBLIC_REGISTRATION"))
+        .andExpect(jsonPath("$.message").value("Role is not allowed for public registration."));
+
+    verify(createUserUseCase, times(1)).execute(any(CreateUserCommand.class));
+    clearInvocations(createUserUseCase);
   }
 
   private CreateUserResult createdUserResult() {
