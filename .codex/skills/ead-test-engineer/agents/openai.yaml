@@ -1,0 +1,4 @@
+interface:
+  display_name: "EAD Test Engineer"
+  short_description: "Design and run EAD test coverage"
+  default_prompt: "Use $ead-test-engineer to add focused automated tests for this EAD behavior."

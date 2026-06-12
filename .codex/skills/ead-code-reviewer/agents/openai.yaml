@@ -1,0 +1,4 @@
+interface:
+  display_name: "EAD Code Reviewer"
+  short_description: "Review EAD diffs for engineering risk"
+  default_prompt: "Use $ead-code-reviewer to review this EAD change before commit."

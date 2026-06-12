@@ -1,0 +1,4 @@
+interface:
+  display_name: "EAD Docs Governance"
+  short_description: "Keep EAD docs and history synchronized"
+  default_prompt: "Use $ead-docs-governance to check whether EAD documentation and commit records are synchronized."

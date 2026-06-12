@@ -1,0 +1,4 @@
+interface:
+  display_name: "EAD Messaging Reviewer"
+  short_description: "Review RabbitMQ and outbox flows"
+  default_prompt: "Use $ead-messaging-outbox-reviewer to review this RabbitMQ or outbox design."

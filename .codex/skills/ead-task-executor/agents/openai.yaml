@@ -1,0 +1,4 @@
+interface:
+  display_name: "EAD Task Executor"
+  short_description: "Implement documented EAD tasks"
+  default_prompt: "Use $ead-task-executor to implement the next documented EAD task with tests."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "EAD Security Reviewer"
+  short_description: "Review auth, JWT, roles, and service auth"
+  default_prompt: "Use $ead-security-auth-reviewer to review this EAD authentication or authorization change."

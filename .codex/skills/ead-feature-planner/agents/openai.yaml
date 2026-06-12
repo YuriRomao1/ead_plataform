@@ -1,0 +1,4 @@
+interface:
+  display_name: "EAD Feature Planner"
+  short_description: "Create FDDs and implementation plans"
+  default_prompt: "Use $ead-feature-planner to turn the next EAD feature into an FDD and implementation plan."
