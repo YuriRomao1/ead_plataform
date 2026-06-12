@@ -19,7 +19,7 @@ public record ApiErrorResponse(
   }
 
   /** Creates an error response without field-level details. */
-  static ApiErrorResponse of(String code, String message) {
-    return new ApiErrorResponse(code, message, CorrelationId.current(), List.of());
+  static ApiErrorResponse of(String code, String message, String correlationId) {
+    return new ApiErrorResponse(code, message, correlationId, List.of());
   }
 }

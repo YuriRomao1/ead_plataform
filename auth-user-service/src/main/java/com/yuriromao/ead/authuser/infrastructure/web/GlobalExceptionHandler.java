@@ -80,6 +80,7 @@ public class GlobalExceptionHandler {
   }
 
   private static ResponseEntity<ApiErrorResponse> error(HttpStatus status, String code) {
-    return ResponseEntity.status(status).body(ApiErrorResponse.of(code, ERROR_MESSAGES.get(code)));
+    return ResponseEntity.status(status)
+        .body(ApiErrorResponse.of(code, ERROR_MESSAGES.get(code), CorrelationId.current()));
   }
 }
