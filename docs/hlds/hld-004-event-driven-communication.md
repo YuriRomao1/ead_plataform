@@ -244,6 +244,7 @@ Considerações:
 
 - `ADR-001: Microservices with Database per Service`
 - `ADR-002: Password Hashing Strategy`, relacionado indiretamente à restrição de dados sensíveis em `UserCreated`.
+- `ADR-004: Testing Strategy`, define a seleção de testes unitários, integração, contrato HTTP, mensageria e Cucumber.
 - `ADR-006: Transactional Outbox for Domain Events`, define outbox para eventos do `auth-user-service`.
 - `ADR-007: RabbitMQ Topology and Retry/DLQ Strategy`, define exchanges, routing keys, retry, DLQ e idempotência esperada.
 

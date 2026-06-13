@@ -237,6 +237,7 @@ Considerações:
 ### ADRs existentes
 
 - `ADR-001: Microservices with Database per Service`
+- `ADR-004: Testing Strategy`
 - `ADR-007: RabbitMQ Topology and Retry/DLQ Strategy`
 
 ### ADRs pendentes
