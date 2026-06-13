@@ -12,6 +12,9 @@ The current delivery implements user creation only. Authentication flows such as
 - Store passwords only as BCrypt hashes.
 - Persist users and roles in the service-owned PostgreSQL database.
 - Record `UserCreated` in Transactional Outbox after successful user creation and publish it asynchronously through RabbitMQ.
+- Requeue failed outbox events through a trusted Actuator maintenance operation.
+- Delete published outbox events after the configured retention window.
+- Expose outbox status metrics through Micrometer/Actuator.
 - Keep HTTP, persistence, security, and messaging details outside application rules.
 
 ## Local Dependencies
@@ -52,6 +55,18 @@ http://localhost:8081
 ```
 
 ## API
+
+Interactive API documentation is available when the service is running:
+
+```text
+http://localhost:8081/swagger-ui.html
+```
+
+The generated OpenAPI JSON is available at:
+
+```text
+http://localhost:8081/v3/api-docs
+```
 
 ### POST /users
 
@@ -127,6 +142,70 @@ Current RabbitMQ configuration:
 | --- | --- |
 | Exchange | `ead.domain.events` |
 | UserCreated routing key | `auth-user.user-created` |
+
+## Outbox Operations
+
+Published outbox records are deleted automatically after the configured retention window:
+
+| Property | Default |
+| --- | --- |
+| `auth-user-service.outbox.cleanup.enabled` | `true` |
+| `auth-user-service.outbox.cleanup.fixed-delay` | `86400000` |
+| `auth-user-service.outbox.cleanup.retention` | `P30D` |
+
+Failed events are not requeued automatically. After the operational cause is understood and fixed, a trusted operator can requeue failed events through the Actuator `outbox` endpoint.
+
+The endpoint is intentionally not included in the default web exposure. To enable it in a trusted administrative environment, include `outbox` explicitly:
+
+```yaml
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,outbox
+```
+
+Outbox status:
+
+```text
+GET /actuator/outbox
+```
+
+Requeue failed events:
+
+```text
+POST /actuator/outbox/requeue-failed
+```
+
+Optional request body:
+
+```json
+{
+  "batchSize": 100
+}
+```
+
+Delete published events older than a retention window:
+
+```text
+POST /actuator/outbox/cleanup-published
+```
+
+Optional request body:
+
+```json
+{
+  "retention": "P30D"
+}
+```
+
+Outbox metrics are exposed through Micrometer as:
+
+```text
+auth_user_service_outbox_events{status="PENDING"}
+auth_user_service_outbox_events{status="PUBLISHED"}
+auth_user_service_outbox_events{status="FAILED"}
+```
 
 ## Validation
 

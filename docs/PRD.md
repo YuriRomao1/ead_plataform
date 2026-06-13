@@ -144,6 +144,8 @@ Representa processos automáticos, como publicação e consumo de eventos, regis
 - O `auth-user-service` existe como módulo implementado.
 - O `auth-user-service` implementa `POST /users`.
 - O cadastro de usuários já cobre persistência, validações principais, hash BCrypt, resposta pública sem senha e registro/publicação de `UserCreated` via outbox e RabbitMQ.
+- O `auth-user-service` já possui manutenção operacional básica da outbox para reprocessar eventos `FAILED`, limpar eventos `PUBLISHED` antigos e expor métricas por status.
+- O `auth-user-service` já possui documentação OpenAPI/Swagger para a API HTTP pública.
 - `course-service` ainda está planejado e não existe como módulo de código.
 - `notification-service` ainda está planejado e não existe como módulo de código.
 - Login, JWT, refresh token, bloqueio/desbloqueio de usuário e consumidores de eventos ainda não fazem parte do estado implementado atual.

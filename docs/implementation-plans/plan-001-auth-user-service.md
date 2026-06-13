@@ -10,6 +10,7 @@ Documentos de referência:
 - `docs/fdds/fdd-001-auth-user-service.md`
 - `docs/decisions/adr-001-microservices-database-per-service.md`
 - `docs/decisions/adr-002-password-hashing-strategy.md`
+- `docs/decisions/adr-004-testing-strategy.md`
 - `docs/decisions/adr-006-transactional-outbox-for-domain-events.md`
 - `docs/decisions/adr-007-rabbitmq-topology-and-retry-dlq-strategy.md`
 
@@ -718,6 +719,90 @@ Riscos remanescentes da outbox:
   - `./gradlew :auth-user-service:build`
 - **Mensagem de commit sugerida:**
   - `feat: add request correlation id`
+
+### T25 - Add outbox maintenance and metrics
+
+- **ID:** T25
+- **Título:** Add outbox maintenance and metrics
+- **Status:** Implementada.
+- **Objetivo:** Fechar as lacunas operacionais da outbox do `auth-user-service` com reprocessamento controlado de eventos `FAILED`, limpeza de eventos `PUBLISHED` antigos e métricas por status.
+- **Escopo:**
+  - criar serviço de manutenção para refileirar eventos `FAILED`;
+  - criar limpeza de eventos `PUBLISHED` por janela de retenção;
+  - executar limpeza automática controlada por configuração;
+  - expor operação Actuator `outbox` para ambientes administrativos confiáveis;
+  - registrar métricas Micrometer por status da outbox.
+- **Fora de escopo:**
+  - criar endpoint público de domínio para manutenção da outbox;
+  - implementar autenticação administrativa;
+  - alterar payload ou contrato do evento `UserCreated`;
+  - implementar consumers ou DLQ do `notification-service`.
+- **Arquivos esperados:**
+  - `auth-user-service/build.gradle`
+  - `auth-user-service/src/main/resources/application.yml`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/outbox/OutboxMaintenanceService.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/outbox/OutboxCleanupScheduler.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/outbox/OutboxEndpoint.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/outbox/OutboxMetrics.java`
+  - testes unitários e de integração relacionados.
+- **Critérios de aceite:**
+  - eventos `FAILED` podem voltar para `PENDING` por operação operacional explícita;
+  - reprocessamento reseta tentativas, limpa erro anterior e agenda nova tentativa;
+  - eventos `PUBLISHED` antigos podem ser removidos por retenção configurável;
+  - limpeza automática de publicados é configurável;
+  - endpoint Actuator `outbox` não é exposto por padrão na web;
+  - métricas por status estão disponíveis para Actuator/Micrometer.
+- **Testes esperados:**
+  - teste de serviço para reprocessamento de `FAILED`;
+  - teste de serviço para limpeza de `PUBLISHED`;
+  - teste de endpoint Actuator;
+  - teste de scheduler;
+  - teste de métricas.
+- **Comando de validação:**
+  - `./gradlew :auth-user-service:test --tests "com.yuriromao.ead.authuser.infrastructure.outbox.*"`
+  - `./gradlew :auth-user-service:test`
+  - `./gradlew :auth-user-service:build`
+- **Mensagem de commit sugerida:**
+  - `feat: add outbox maintenance operations`
+
+### T26 - Add OpenAPI documentation for auth-user-service
+
+- **ID:** T26
+- **Título:** Add OpenAPI documentation for auth-user-service
+- **Status:** Implementada.
+- **Objetivo:** Adicionar documentação OpenAPI/Swagger para o contrato HTTP público do `auth-user-service`.
+- **Escopo:**
+  - adicionar starter Springdoc compatível com Spring Boot 4;
+  - documentar metadados da API;
+  - anotar `POST /users`, request, response e erro padrão;
+  - validar geração de `/v3/api-docs`;
+  - documentar acesso ao Swagger UI.
+- **Fora de escopo:**
+  - documentar endpoints administrativos como API pública do domínio;
+  - criar autenticação, JWT ou fluxos protegidos;
+  - versionar formalmente a API REST.
+- **Arquivos esperados:**
+  - `auth-user-service/build.gradle`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/AuthUserServiceApplication.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/web/UserController.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/web/CreateUserRequest.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/web/UserResponse.java`
+  - `auth-user-service/src/main/java/com/yuriromao/ead/authuser/infrastructure/web/ApiErrorResponse.java`
+  - `auth-user-service/src/test/java/com/yuriromao/ead/authuser/infrastructure/web/OpenApiDocumentationTest.java`
+- **Critérios de aceite:**
+  - Swagger UI fica disponível em `/swagger-ui.html`;
+  - OpenAPI JSON fica disponível em `/v3/api-docs`;
+  - `POST /users` aparece na especificação gerada;
+  - respostas esperadas `201`, `400`, `409` e `500` são documentadas;
+  - teste automatizado valida a especificação gerada.
+- **Testes esperados:**
+  - teste de contexto HTTP validando `/v3/api-docs`.
+- **Comando de validação:**
+  - `./gradlew :auth-user-service:test --tests "com.yuriromao.ead.authuser.infrastructure.web.OpenApiDocumentationTest"`
+  - `./gradlew :auth-user-service:test`
+  - `./gradlew :auth-user-service:build`
+- **Mensagem de commit sugerida:**
+  - `docs: add auth user OpenAPI documentation`
 
 ## Validação final da entrega
 

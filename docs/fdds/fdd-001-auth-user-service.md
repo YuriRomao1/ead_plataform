@@ -49,6 +49,10 @@ Essa entrega também inicia a comunicação assíncrona da plataforma com o regi
 - Status inicial `ACTIVE`.
 - Registro do evento `UserCreated` na outbox.
 - Publicação assíncrona de eventos pendentes.
+- Reprocessamento operacional controlado de eventos `FAILED` da outbox.
+- Limpeza configurável de eventos `PUBLISHED` antigos.
+- Métricas de outbox por status.
+- Documentação OpenAPI/Swagger do contrato HTTP público.
 - Tratamento de erros esperados.
 - Observabilidade mínima para criação, registro na outbox e publicação de evento.
 - Testes unitários, de persistência, mensageria e contrato HTTP.
@@ -253,6 +257,12 @@ Logs esperados:
 - evento `UserCreated` publicado com sucesso;
 - falha inesperada na criação, registro ou publicação.
 
+Métricas esperadas:
+
+- quantidade de eventos `PENDING`;
+- quantidade de eventos `PUBLISHED`;
+- quantidade de eventos `FAILED`.
+
 Health checks esperados:
 
 - status da aplicação;
@@ -266,6 +276,12 @@ Correlação:
 - Responses de erro devem incluir `correlationId`.
 - Logs de requisição devem carregar `correlationId` via MDC.
 - Logs de evento devem incluir `eventId`.
+
+Documentação da API:
+
+- OpenAPI JSON deve estar disponível em `/v3/api-docs`;
+- Swagger UI deve estar disponível em `/swagger-ui.html`;
+- `POST /users` deve documentar request, response de sucesso e responses de erro esperadas.
 
 Dados sensíveis:
 
@@ -314,6 +330,10 @@ Não há dependência funcional de `course-service` ou `notification-service` pa
 - O status `BLOCKED` existe no modelo para uso futuro, mas não há fluxo de bloqueio nesta entrega.
 - `UserCreated` é registrado na outbox após criação bem-sucedida.
 - Eventos pendentes da outbox podem ser publicados pelo relay assíncrono.
+- Eventos `FAILED` podem ser refileirados por operação Actuator administrativa.
+- Eventos `PUBLISHED` antigos podem ser removidos por retenção configurável.
+- Métricas de outbox por status estão disponíveis para observabilidade.
+- A especificação OpenAPI documenta o contrato público `POST /users`.
 - `UserCreated` não contém dados sensíveis.
 - O serviço não acessa banco de outro microsserviço.
 - Testes automatizados relevantes passam.
@@ -354,6 +374,9 @@ Não há dependência funcional de `course-service` ou `notification-service` pa
 - Deve registrar falhas de publicação com incremento de tentativas e próxima tentativa.
 - Evento publicado deve conter `eventId`, `eventType`, `occurredAt` e payload.
 - Evento publicado não deve conter senha nem hash.
+- Deve refileirar eventos `FAILED` somente por operação explícita.
+- Deve remover eventos `PUBLISHED` antigos conforme retenção configurada.
+- Deve expor métricas de outbox por status.
 
 ### Testes de contrato HTTP
 
@@ -362,6 +385,7 @@ Não há dependência funcional de `course-service` ou `notification-service` pa
 - `POST /users` deve retornar `409 Conflict` para e-mail duplicado.
 - Response de sucesso deve seguir o contrato definido.
 - Response de erro deve seguir o formato definido.
+- `/v3/api-docs` deve documentar `POST /users`.
 
 ## 13. Riscos e mitigação
 

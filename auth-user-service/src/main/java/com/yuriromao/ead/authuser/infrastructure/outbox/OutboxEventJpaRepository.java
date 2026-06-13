@@ -16,4 +16,14 @@ public interface OutboxEventJpaRepository extends JpaRepository<OutboxEventJpaEn
   /** Finds pending events whose retry time has arrived, ordered oldest first and page-limited. */
   List<OutboxEventJpaEntity> findByStatusAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
       OutboxEventStatus status, LocalDateTime nextAttemptAt, Pageable pageable);
+
+  /** Counts outbox records for operational status metrics. */
+  long countByStatus(OutboxEventStatus status);
+
+  /** Finds events by status for operational maintenance tasks. */
+  List<OutboxEventJpaEntity> findByStatusOrderByUpdatedAtAsc(
+      OutboxEventStatus status, Pageable pageable);
+
+  /** Deletes already published events older than the given publication timestamp. */
+  long deleteByStatusAndPublishedAtBefore(OutboxEventStatus status, LocalDateTime publishedAt);
 }

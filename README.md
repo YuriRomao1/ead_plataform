@@ -29,6 +29,8 @@ Current implemented scope:
 - password hashing with BCrypt
 - public response without password or password hash
 - `UserCreated` recorded in Transactional Outbox and published asynchronously through RabbitMQ
+- outbox maintenance, retention cleanup, and metrics through operational infrastructure
+- OpenAPI/Swagger documentation for the HTTP API
 
 Out of scope for the current implementation:
 
@@ -56,6 +58,13 @@ Build the service:
 
 ```bash
 ./gradlew :auth-user-service:build
+```
+
+Open API documentation locally after the service starts:
+
+```text
+http://localhost:8081/swagger-ui.html
+http://localhost:8081/v3/api-docs
 ```
 
 See the service-specific documentation in [auth-user-service/README.md](auth-user-service/README.md).
@@ -127,6 +136,7 @@ password: ead
 - [Domain Context](docs/domain-context.md)
 - [High-Level Design](docs/hld.md)
 - [ADR-001: Microservices with Database per Service](docs/decisions/adr-001-microservices-database-per-service.md)
+- [ADR-004: Testing Strategy](docs/decisions/adr-004-testing-strategy.md)
 
 ## Development Rules
 

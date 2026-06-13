@@ -45,6 +45,10 @@ O `auth-user-service` deve:
 - garantir unicidade de e-mail dentro do próprio serviço;
 - registrar `UserCreated` na outbox após criação bem-sucedida de usuário;
 - publicar eventos pendentes da outbox no RabbitMQ por publisher assíncrono;
+- refileirar eventos `FAILED` por operação operacional explícita;
+- limpar eventos `PUBLISHED` antigos por retenção configurável;
+- expor métricas de outbox por status;
+- documentar a API HTTP pública com OpenAPI/Swagger;
 - expor APIs do contexto Auth/User;
 - prover dados de autorização para outros serviços por contrato REST futuro.
 
@@ -132,6 +136,8 @@ A tabela `outbox_events` pertence ao banco do `auth-user-service`. Ela guarda `i
 
 No nível arquitetural, a outbox é a fonte local de verdade para eventos pendentes de publicação. O publisher assíncrono já está implementado no producer: ele busca apenas registros `PENDING` elegíveis, publica o evento no broker e atualiza o estado para `PUBLISHED` ou `FAILED` conforme o resultado das tentativas.
 
+Eventos `FAILED` podem ser refileirados para `PENDING` por operação Actuator explícita após análise operacional. Eventos `PUBLISHED` antigos são removidos por limpeza configurável para evitar crescimento indefinido da tabela. Métricas Micrometer expõem a quantidade de eventos por status.
+
 O serviço não deve consumir eventos nesta primeira fase.
 
 O evento `UserCreated` não deve conter senha, hash ou outros dados sensíveis.
@@ -178,6 +184,7 @@ O serviço deve registrar:
 - sucesso na criação de usuário;
 - tentativa e resultado de registro de `UserCreated` na outbox;
 - tentativa e resultado de publicação assíncrona de eventos pendentes.
+- quantidade de eventos de outbox por status.
 
 Health checks esperados:
 
@@ -212,10 +219,10 @@ Considerações:
 - o serviço deve poder escalar horizontalmente quando não mantiver estado em memória;
 - unicidade de e-mail deve ser garantida também no banco;
 - hash BCrypt é CPU-intensive e pode limitar throughput;
-- outbox reduz perda de evento, mas exige retry e limpeza operacional;
+- outbox reduz perda de evento, mas operações administrativas não devem ser expostas fora de ambiente confiável;
 - timeouts devem ser definidos para integrações REST futuras.
 
-O ADR-006 define outbox transacional para eventos de domínio do `auth-user-service`. O ADR-007 complementa a estratégia inicial de retry do producer e a topologia de mensageria. Permanecem em aberto as decisões operacionais de reprocessamento manual e limpeza de registros antigos.
+O ADR-006 define outbox transacional para eventos de domínio do `auth-user-service`. O ADR-007 complementa a estratégia inicial de retry do producer e a topologia de mensageria. Reprocessamento de eventos `FAILED`, retenção de publicados e métricas por status já existem no producer.
 
 ## 15. Riscos arquiteturais
 
@@ -232,6 +239,7 @@ O ADR-006 define outbox transacional para eventos de domínio do `auth-user-serv
 
 - `ADR-001: Microservices with Database per Service`
 - `ADR-002: Password Hashing Strategy`
+- `ADR-004: Testing Strategy`
 - `ADR-006: Transactional Outbox for Domain Events`
 - `ADR-007: RabbitMQ Topology and Retry/DLQ Strategy`
 
@@ -253,7 +261,7 @@ O FDD-001 define a primeira entrega funcional: criação de usuário, validaçõ
 
 ## 18. Próximos passos técnicos
 
-- Definir operação administrativa para reprocessar eventos `FAILED` da outbox.
-- Definir política de retenção e limpeza de registros antigos da outbox.
-- Documentar uso operacional do `auth-user-service`.
-- Implementar métricas específicas para eventos pendentes, publicados e com falha.
+- Definir autenticação administrativa antes de expor operações Actuator sensíveis fora de ambiente confiável.
+- Definir estratégia de autenticação e formato de token.
+- Definir estratégia de validação de token entre serviços.
+- Definir versionamento de APIs REST.

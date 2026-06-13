@@ -168,6 +168,28 @@ public class OutboxEventJpaEntity {
     this.updatedAt = updatedAt;
   }
 
+  /** Requeues a failed event for a new publication cycle after an operator intervention. */
+  public void requeueFailed(LocalDateTime nextAttemptAt, LocalDateTime updatedAt) {
+    if (nextAttemptAt == null) {
+      throw new NullPointerException("nextAttemptAt must not be null");
+    }
+
+    if (updatedAt == null) {
+      throw new NullPointerException("updatedAt must not be null");
+    }
+
+    if (status != OutboxEventStatus.FAILED) {
+      throw new IllegalStateException("only FAILED events can be requeued");
+    }
+
+    this.status = OutboxEventStatus.PENDING;
+    this.attempts = 0;
+    this.lastError = null;
+    this.nextAttemptAt = nextAttemptAt;
+    this.publishedAt = null;
+    this.updatedAt = updatedAt;
+  }
+
   public UUID getId() {
     return id;
   }

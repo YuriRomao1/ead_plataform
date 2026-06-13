@@ -40,3 +40,15 @@ auth-user-service:
       batch-size: 20
       max-attempts: 5
       retry-delay: PT30S
+    cleanup:
+      enabled: true
+      fixed-delay: 86400000
+      retention: P30D
+    maintenance:
+      requeue-batch-size: 100
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics

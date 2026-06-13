@@ -90,6 +90,8 @@ Estado observado no código:
 - `auth-user-service` implementa criação de usuário por `POST /users`.
 - `auth-user-service` possui persistência própria para usuários, papéis e eventos de outbox.
 - `auth-user-service` registra `UserCreated` na outbox transacional e publica eventos pendentes no RabbitMQ por relay assíncrono.
+- `auth-user-service` possui manutenção operacional da outbox para refileirar eventos `FAILED`, limpar eventos `PUBLISHED` antigos e expor métricas por status.
+- `auth-user-service` expõe documentação OpenAPI/Swagger para a API HTTP pública.
 - `course-service` e `notification-service` ainda não existem como módulos de código.
 
 Ausências relevantes:
@@ -98,7 +100,7 @@ Ausências relevantes:
 - `notification-service` ainda não existe como módulo de código.
 - Não há implementação de login, JWT, refresh token, bloqueio/desbloqueio ou validação distribuída de permissões.
 - Não há consumers de eventos implementados.
-- Reprocessamento manual de eventos `FAILED`, limpeza de registros antigos da outbox e métricas específicas de outbox ainda precisam de definição operacional.
+- A exposição web de operações administrativas da outbox depende de ambiente confiável, pois autenticação administrativa ainda não existe.
 
 ## 6. Serviços iniciais
 
@@ -123,6 +125,8 @@ Estado atual:
 - hash de senha com BCrypt implementado;
 - evento `UserCreated` registrado na outbox transacional após criação bem-sucedida;
 - publisher assíncrono da outbox implementado para publicar eventos pendentes no RabbitMQ;
+- manutenção da outbox implementada para refileirar `FAILED`, limpar `PUBLISHED` antigos e registrar métricas por status;
+- documentação OpenAPI/Swagger implementada para o contrato HTTP público;
 - testes automatizados cobrem domínio, aplicação, persistência, HTTP e outbox.
 
 ### course-service
@@ -311,6 +315,10 @@ Comandos atuais para o módulo existente:
   - Define BCrypt como estratégia inicial de hash de senha.
   - Rejeita senha em texto puro.
 
+- `ADR-004: Testing Strategy`
+  - Define testes por camada, uso de JUnit, Spring Boot test support, Testcontainers, JaCoCo e Cucumber para fluxos BDD observáveis.
+  - Exige que funcionalidades sejam concluídas somente com testes relevantes passando.
+
 - `ADR-006: Transactional Outbox for Domain Events`
   - Define outbox transacional para eventos de domínio do `auth-user-service`.
   - Reduz perda de `UserCreated` após persistência local.
@@ -333,9 +341,7 @@ Comandos atuais para o módulo existente:
 
 Riscos atuais:
 
-- eventos `FAILED` na outbox ainda não possuem operação administrativa de reprocessamento;
-- registros antigos da outbox ainda não possuem política de retenção ou limpeza;
-- métricas específicas de outbox ainda não foram implementadas;
+- operações administrativas da outbox não devem ser expostas publicamente enquanto não houver autenticação administrativa;
 - consumidores não idempotentes podem processar eventos duplicados;
 - ausência de retry e dead-letter queue pode dificultar recuperação de falhas;
 - dependência excessiva de chamadas REST do `course-service` para o `auth-user-service` pode gerar acoplamento operacional;
@@ -347,9 +353,7 @@ Riscos atuais:
 Mitigações esperadas:
 
 - manter a outbox transacional como mecanismo confiável de publicação no `auth-user-service`;
-- definir operação de reprocessamento para eventos `FAILED`;
-- definir retenção e limpeza de registros antigos da outbox;
-- introduzir métricas para eventos pendentes, publicados e com falha;
+- manter o endpoint Actuator de outbox fora da exposição web padrão e habilitá-lo apenas em ambientes administrativos confiáveis;
 - exigir idempotência em consumidores;
 - definir retry e dead-letter queue antes de consumidores reais;
 - manter validações síncronas apenas quando houver necessidade de resposta imediata;
