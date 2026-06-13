@@ -3,6 +3,7 @@ package com.yuriromao.ead.authuser.infrastructure.web;
 import com.yuriromao.ead.authuser.application.usecase.CreateUserResult;
 import com.yuriromao.ead.authuser.domain.model.UserRole;
 import com.yuriromao.ead.authuser.domain.model.UserStatus;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Set;
@@ -14,8 +15,14 @@ import java.util.UUID;
  * <p>The response intentionally contains only public user data and excludes password and password
  * hash fields.
  */
+@Schema(description = "Public user data returned after successful registration.")
 public record UserResponse(
-    UUID id, String name, String email, UserStatus status, Set<UserRole> roles, Instant createdAt) {
+    @Schema(example = "6fbe1f59-aace-4bb9-8ff6-9da5e1183f17") UUID id,
+    @Schema(example = "User Name") String name,
+    @Schema(example = "user@email.com") String email,
+    UserStatus status,
+    Set<UserRole> roles,
+    @Schema(example = "2026-01-01T10:00:00Z") Instant createdAt) {
 
   public UserResponse {
     id = Objects.requireNonNull(id, "id must not be null");

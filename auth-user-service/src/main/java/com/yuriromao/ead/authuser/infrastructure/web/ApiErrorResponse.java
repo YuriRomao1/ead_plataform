@@ -1,5 +1,6 @@
 package com.yuriromao.ead.authuser.infrastructure.web;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import java.util.Objects;
 
@@ -9,8 +10,12 @@ import java.util.Objects;
  * <p>The response exposes stable machine-readable codes and client-safe messages, never stack
  * traces or internal persistence/messaging details.
  */
+@Schema(description = "Standard error response for Auth/User HTTP API failures.")
 public record ApiErrorResponse(
-    String code, String message, String correlationId, List<String> details) {
+    @Schema(example = "USER_EMAIL_ALREADY_EXISTS") String code,
+    @Schema(example = "Email already exists.") String message,
+    @Schema(example = "request-correlation-id") String correlationId,
+    List<String> details) {
 
   public ApiErrorResponse {
     code = Objects.requireNonNull(code, "code must not be null");
