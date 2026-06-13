@@ -36,6 +36,132 @@ How can we test this change?
 How do we prove this change works?
 ```
 
+## 7fa2ce7045688319b5de19deb23c77bad3830e5a - docs: complete testing strategy ADR
+
+### Changelog
+Detalha a ADR-004 com a estratégia de testes por camada, ferramentas aceitas, política de cobertura, comandos de validação e limites de uso de Cucumber.
+
+Atualiza HLDs de `course-service`, `notification-service` e comunicação por eventos para referenciar a ADR-004 como decisão existente.
+
+### Motivation
+Fechar a decisão de estratégia de testes com base no estado real do projeto e reduzir ambiguidade para as próximas features.
+
+### Consequences
+Advantages:
+Torna explícito quando usar JUnit, WebMVC tests, Testcontainers, Mockito, JaCoCo e Cucumber.
+
+Disadvantages:
+A estratégia de cobertura estrita aumenta o custo de manutenção dos testes.
+
+Impact:
+Impacta documentação de arquitetura e decisão. Não altera runtime, testes ou contratos HTTP.
+
+Risks:
+Se futuras features adicionarem Cucumber sem FDD/plano específico, os cenários podem duplicar testes de camada inferior.
+
+### Metrics
+- ADR-004 documenta ferramentas e fronteiras de teste.
+- HLDs relevantes referenciam ADR-004.
+- Validação esperada do `auth-user-service` permanece `test` e `build`.
+
+### Test Scenarios
+- Revisar ADR-004 contra `auth-user-service/build.gradle`.
+- Revisar HLDs para confirmar referência à ADR-004.
+- Confirmar que a ADR não exige Cucumber para o estado atual do `auth-user-service`.
+
+### Evidence
+- `git diff --check`
+- `.\gradlew.bat :auth-user-service:test`
+- `.\gradlew.bat :auth-user-service:build`
+- `git show --stat --oneline 7fa2ce7045688319b5de19deb23c77bad3830e5a`
+
+## a708c3d30ee144ad868796296e73df2c4597c643 - docs: add auth user OpenAPI documentation
+
+### Changelog
+Adiciona Springdoc OpenAPI ao `auth-user-service` e documenta o contrato público `POST /users`.
+
+Inclui metadados da API, anotações nos DTOs e controller, além de teste que valida `/v3/api-docs`.
+
+### Motivation
+Facilitar inspeção e integração com a API HTTP pública sem depender apenas do README.
+
+### Consequences
+Advantages:
+Disponibiliza Swagger UI em `/swagger-ui.html` e OpenAPI JSON em `/v3/api-docs`.
+
+Disadvantages:
+Adiciona dependência externa `springdoc-openapi-starter-webmvc-ui`.
+
+Impact:
+Impacta documentação runtime da API e testes HTTP. Não altera regra de negócio de criação de usuário.
+
+Risks:
+Swagger/OpenAPI fica público enquanto não houver estratégia de segurança para endpoints auxiliares.
+
+### Metrics
+- `/v3/api-docs` expõe `POST /users`.
+- Swagger UI fica disponível quando o serviço está rodando.
+- Teste automatizado cobre a especificação gerada.
+
+### Test Scenarios
+- Acessar `/v3/api-docs`.
+- Verificar metadados da API.
+- Confirmar que `POST /users` aparece na especificação.
+- Confirmar respostas `201`, `400`, `409` e `500` documentadas.
+
+### Evidence
+- `.\gradlew.bat :auth-user-service:test --tests "com.yuriromao.ead.authuser.infrastructure.web.OpenApiDocumentationTest"`
+- `.\gradlew.bat :auth-user-service:test`
+- `.\gradlew.bat :auth-user-service:build`
+- `git show --stat --oneline a708c3d30ee144ad868796296e73df2c4597c643`
+
+## 14ef36d00d6c8ae05f3290f787f14f77a100baf8 - feat: add outbox maintenance operations
+
+### Changelog
+Adiciona manutenção operacional da outbox do `auth-user-service`.
+
+Inclui reprocessamento controlado de eventos `FAILED`, limpeza de eventos `PUBLISHED` antigos, scheduler de retenção, endpoint Actuator `outbox`, métricas Micrometer por status e testes relacionados.
+
+Atualiza documentação de produto, FDD, HLDs, plano de implementação e READMEs para refletir o novo comportamento.
+
+### Motivation
+Fechar lacunas operacionais da outbox após a implementação do producer assíncrono.
+
+Eventos que esgotam tentativas precisam de reprocessamento explícito, e eventos publicados precisam de política de retenção para evitar crescimento indefinido.
+
+### Consequences
+Advantages:
+Permite refileirar eventos `FAILED`, limpar publicados antigos e observar quantidade de eventos por status.
+
+Disadvantages:
+Introduz Actuator e endpoints operacionais que exigem cuidado de exposição até existir autenticação administrativa.
+
+Impact:
+Impacta infraestrutura operacional do `auth-user-service`, configuração, documentação e testes de outbox. Não altera o contrato público `POST /users`.
+
+Risks:
+Se `outbox` for exposto via Actuator em ambiente não confiável, operações administrativas podem ser executadas sem autenticação.
+
+### Metrics
+- Métrica `auth_user_service_outbox_events` por status.
+- Eventos `FAILED` podem voltar para `PENDING`.
+- Eventos `PUBLISHED` antigos podem ser removidos por retenção.
+- Build do módulo permanece verde.
+
+### Test Scenarios
+- Refileirar eventos `FAILED`.
+- Limpar eventos `PUBLISHED` por retenção.
+- Executar scheduler de limpeza.
+- Registrar gauges por status.
+- Validar endpoint Actuator por teste unitário.
+
+### Evidence
+- `.\gradlew.bat :auth-user-service:test --tests "com.yuriromao.ead.authuser.infrastructure.outbox.*"`
+- `.\gradlew.bat :auth-user-service:test`
+- `.\gradlew.bat :auth-user-service:build`
+- `git diff --check`
+- `git show --stat --oneline 14ef36d00d6c8ae05f3290f787f14f77a100baf8`
+
 ## 0045ef4bc59e8e1dd411dc26977d21b2cc7618d1 - docs: add EAD workflow skills
 
 ### Changelog
